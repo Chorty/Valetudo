@@ -29,6 +29,7 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
                         [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP]: 0,
                         [stateAttrs.PresetSelectionStateAttribute.MODE.MOP]: 1,
                         [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM]: 2,
+                        [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP]: 3,
                     }),
                     highResolutionWaterGrades: true
                 },
