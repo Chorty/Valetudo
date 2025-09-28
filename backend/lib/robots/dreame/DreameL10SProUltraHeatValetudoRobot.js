@@ -25,10 +25,12 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
             Object.assign(
                 {},
                 {
+                    // MIoT preset 3 still triggers the vacuum-then-mop sequence on this model.
                     operationModes: Object.freeze({
                         [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP]: 0,
                         [stateAttrs.PresetSelectionStateAttribute.MODE.MOP]: 1,
                         [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM]: 2,
+                        [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP]: 3,
                     }),
                     highResolutionWaterGrades: true
                 },
