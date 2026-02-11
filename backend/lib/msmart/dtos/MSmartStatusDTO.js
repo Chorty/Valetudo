@@ -69,6 +69,7 @@ class MSmartStatusDTO extends MSmartDTO {
      * @param {boolean} [data.telnet_switch]
      * @param {boolean} [data.mop_auto_dry_switch]
      * @param {boolean} [data.ai_grade_avoidance_mode]
+     * @param {boolean} [data.tail_sweep_clean_switch]
      * @param {boolean} [data.pound_sign_switch]
      * @param {number} [data.stationCleanFrequency]
      * @param {number} [data.beautify_map_grade]
@@ -99,6 +100,8 @@ class MSmartStatusDTO extends MSmartDTO {
      * @param {boolean} [data.station_v2_switch]
      * @param {boolean} [data.static_stain_recognition_switch]
      * @param {boolean} [data.stairless_mode_switch]
+     * @param {boolean} [data.elevator_switch]
+     * @param {boolean} [data.elevator]
      */
     constructor(data) {
         super();
@@ -169,6 +172,7 @@ class MSmartStatusDTO extends MSmartDTO {
         this.telnet_switch = data.telnet_switch;
         this.mop_auto_dry_switch = data.mop_auto_dry_switch;
         this.ai_grade_avoidance_mode = data.ai_grade_avoidance_mode;
+        this.tail_sweep_clean_switch = data.tail_sweep_clean_switch;
         this.pound_sign_switch = data.pound_sign_switch;
         this.stationCleanFrequency = data.stationCleanFrequency;
         this.beautify_map_grade = data.beautify_map_grade;
@@ -199,6 +203,8 @@ class MSmartStatusDTO extends MSmartDTO {
         this.station_v2_switch = data.station_v2_switch;
         this.static_stain_recognition_switch = data.static_stain_recognition_switch;
         this.stairless_mode_switch = data.stairless_mode_switch;
+        this.elevator_switch = data.elevator_switch;
+        this.elevator = data.elevator;
 
         Object.freeze(this);
     }

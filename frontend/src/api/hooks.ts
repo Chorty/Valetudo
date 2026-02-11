@@ -133,6 +133,21 @@ import {
     sendMopExtensionFurnitureLegHandlingControlState,
     fetchMopTwistControlState,
     sendMopTwistControlState,
+    fetchMopDockMopAutoDryingControlState,
+    sendMopDockMopAutoDryingControlState,
+    fetchMapSegmentMaterialControlProperties,
+    sendSetSegmentMaterialCommand,
+    fetchFloorMaterialDirectionAwareNavigationControlState,
+    sendFloorMaterialDirectionAwareNavigationControlState,
+    fetchCleanRoute,
+    sendCleanRoute,
+    fetchCleanRouteControlProperties,
+    fetchMopDockMopDryingTime,
+    sendMopDockMopDryingTime,
+    fetchMopDockMopDryingTimeControlProperties,
+    fetchAutoEmptyDockAutoEmptyDuration,
+    sendAutoEmptyDockAutoEmptyDuration,
+    fetchAutoEmptyDockAutoEmptyDurationControlProperties,
 } from "./client";
 import {
     PresetSelectionState,
@@ -142,9 +157,11 @@ import {
 } from "./RawRobotState";
 import { isAttribute } from "./utils";
 import {
+    AutoEmptyDockAutoEmptyDuration,
     AutoEmptyDockAutoEmptyInterval,
     Capability,
     CarpetSensorMode,
+    CleanRoute,
     CombinedVirtualRestrictionsUpdateRequestParameters,
     ConsumableId,
     DoNotDisturbConfiguration,
@@ -154,7 +171,9 @@ import {
     MapSegmentationActionRequestParameters,
     MapSegmentEditJoinRequestParameters,
     MapSegmentEditSplitRequestParameters,
+    MapSegmentMaterialControlRequestParameters,
     MapSegmentRenameRequestParameters,
+    MopDockMopDryingDuration,
     MopDockMopWashTemperature,
     MQTTConfiguration,
     NetworkAdvertisementConfiguration,
@@ -238,6 +257,15 @@ enum QueryKey {
     MopDockMopWashTemperatureProperties = "mop_dock_mop_wash_temperature_properties",
     MopTwistControl = "mop_twist_control",
     MopExtensionFurnitureLegHandlingControl = "mop_extension_furniture_leg_handling_control",
+    MopDockMopAutoDryingControl = "mop_dock_mop_auto_drying_control",
+    MapSegmentMaterialControlProperties = "map_segment_material_control_properties",
+    FloorMaterialDirectionAwareNavigationControl = "floor_material_direction_aware_navigation_control",
+    CleanRouteControl = "clean_route_control",
+    CleanRouteControlProperties = "clean_route_control_properties",
+    MopDockMopDryingTimeControl = "mop_dock_mop_drying_time_control",
+    MopDockMopDryingTimeControlProperties = "mop_dock_mop_drying_time_control_properties",
+    AutoEmptyDockAutoEmptyDurationControl = "auto_empty_dock_auto_empty_duration_control",
+    AutoEmptyDockAutoEmptyDurationControlProperties = "auto_empty_dock_auto_empty_duration_control_properties",
 }
 
 const useOnCommandError = (capability: Capability | string): ((error: unknown) => void) => {
@@ -586,6 +614,36 @@ export const useRenameSegmentMutation = (
         ...options,
 
         onError: useOnCommandError(Capability.MapSegmentRename),
+        onSuccess: async (data, ...args) => {
+            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
+                updatedAt: Date.now(),
+            });
+            await options?.onSuccess?.(data, ...args);
+        },
+    });
+};
+
+export const useMapSegmentMaterialControlPropertiesQuery = () => {
+    return useQuery( {
+        queryKey: [QueryKey.MapSegmentMaterialControlProperties],
+        queryFn: fetchMapSegmentMaterialControlProperties,
+
+        staleTime: Infinity,
+    });
+};
+
+export const useSetSegmentMaterialMutation = (
+    options?: UseMutationOptions<RobotAttribute[], unknown, MapSegmentMaterialControlRequestParameters>
+) => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (parameters: MapSegmentMaterialControlRequestParameters) => {
+            return sendSetSegmentMaterialCommand(parameters).then(fetchStateAttributes); //TODO: this should actually refetch the map
+        },
+        ...options,
+
+        onError: useOnCommandError(Capability.MapSegmentMaterialControl),
         onSuccess: async (data, ...args) => {
             queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
                 updatedAt: Date.now(),
@@ -1647,3 +1705,120 @@ export const useMopExtensionFurnitureLegHandlingControlMutation = () => {
         onError: useOnCommandError(Capability.MopExtensionFurnitureLegHandlingControl)
     });
 };
+
+export const useMopDockMopAutoDryingControlQuery = () => {
+    return useQuery( {
+        queryKey: [QueryKey.MopDockMopAutoDryingControl],
+        queryFn: fetchMopDockMopAutoDryingControlState,
+
+        staleTime: Infinity
+    });
+};
+
+export const useMopDockMopAutoDryingControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MopDockMopAutoDryingControl],
+        mutationFn: (enable: boolean) => {
+            return sendMopDockMopAutoDryingControlState(enable).then(fetchMopDockMopAutoDryingControlState);
+        },
+        onError: useOnCommandError(Capability.MopDockMopAutoDryingControl)
+    });
+};
+
+export const useFloorMaterialDirectionAwareNavigationControlQuery = () => {
+    return useQuery( {
+        queryKey: [QueryKey.FloorMaterialDirectionAwareNavigationControl],
+        queryFn: fetchFloorMaterialDirectionAwareNavigationControlState,
+
+        staleTime: Infinity
+    });
+};
+
+export const useFloorMaterialDirectionAwareNavigationControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.FloorMaterialDirectionAwareNavigationControl],
+        mutationFn: (enable: boolean) => {
+            return sendFloorMaterialDirectionAwareNavigationControlState(enable).then(fetchFloorMaterialDirectionAwareNavigationControlState);
+        },
+        onError: useOnCommandError(Capability.FloorMaterialDirectionAwareNavigationControl)
+    });
+};
+
+export const useCleanRouteQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.CleanRouteControl],
+        queryFn: fetchCleanRoute
+    });
+};
+
+export const useCleanRouteMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.CleanRouteControl],
+        mutationFn: (route: CleanRoute) => {
+            return sendCleanRoute({route: route}).then(fetchCleanRoute);
+        },
+        onError: useOnCommandError(Capability.CleanRouteControl)
+    });
+};
+
+export const useCleanRouteControlPropertiesQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.CleanRouteControlProperties],
+        queryFn: fetchCleanRouteControlProperties,
+
+        staleTime: Infinity
+    });
+};
+
+export const useMopDockMopDryingTimeQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MopDockMopDryingTimeControl],
+        queryFn: fetchMopDockMopDryingTime
+    });
+};
+
+export const useMopDockMopDryingTimeMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MopDockMopDryingTimeControl],
+        mutationFn: (duration: MopDockMopDryingDuration) => {
+            return sendMopDockMopDryingTime({duration: duration}).then(fetchMopDockMopDryingTime);
+        },
+        onError: useOnCommandError(Capability.MopDockMopDryingTimeControl)
+    });
+};
+
+export const useMopDockMopDryingTimeControlPropertiesQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MopDockMopDryingTimeControlProperties],
+        queryFn: fetchMopDockMopDryingTimeControlProperties,
+
+        staleTime: Infinity
+    });
+};
+
+export const useAutoEmptyDockAutoEmptyDurationQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.AutoEmptyDockAutoEmptyDurationControl],
+        queryFn: fetchAutoEmptyDockAutoEmptyDuration
+    });
+};
+
+export const useAutoEmptyDockAutoEmptyDurationMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.AutoEmptyDockAutoEmptyDurationControl],
+        mutationFn: (duration: AutoEmptyDockAutoEmptyDuration) => {
+            return sendAutoEmptyDockAutoEmptyDuration({duration: duration}).then(fetchAutoEmptyDockAutoEmptyDuration);
+        },
+        onError: useOnCommandError(Capability.AutoEmptyDockAutoEmptyDurationControl)
+    });
+};
+
+export const useAutoEmptyDockAutoEmptyDurationControlPropertiesQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.AutoEmptyDockAutoEmptyDurationControlProperties],
+        queryFn: fetchAutoEmptyDockAutoEmptyDurationControlProperties,
+
+        staleTime: Infinity
+    });
+};
+

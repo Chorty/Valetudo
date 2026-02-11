@@ -41,6 +41,21 @@ class ValetudoRobot {
         this.postActiveStateMapPollCooldownCredits = 0;
 
         this.initInternalSubscriptions();
+
+
+        const modelDetails = this.getModelDetails();
+        for (const attachmentType of modelDetails.supportedAttachments) {
+            this.state.upsertFirstMatchingAttribute(new entities.state.attributes.AttachmentStateAttribute({
+                type: attachmentType,
+                attached: false
+            }));
+        }
+        for (const dockComponentType of modelDetails.supportedDockComponents) {
+            this.state.upsertFirstMatchingAttribute(new entities.state.attributes.DockComponentStateAttribute({
+                type: dockComponentType,
+                value: entities.state.attributes.DockComponentStateAttribute.VALUE.UNKNOWN
+            }));
+        }
     }
 
     /**
@@ -224,7 +239,9 @@ class ValetudoRobot {
 
             this.executeMapPoll().then((response) => {
                 repollSeconds = this.determineNextMapPollInterval(response);
-            }).catch(() => {
+            }).catch((err) => {
+                Logger.debug("Error while executing map poll", err);
+
                 repollSeconds = ValetudoRobot.MAP_POLLING_INTERVALS.ERROR;
             }).finally(() => {
                 this.mapPollTimeout = setTimeout(() => {
@@ -252,6 +269,7 @@ class ValetudoRobot {
     /**
      * @typedef {object} ModelDetails
      * @property {Array<import("../entities/state/attributes/AttachmentStateAttribute").AttachmentStateAttributeType>} supportedAttachments
+     * @property {Array<import("../entities/state/attributes/DockComponentStateAttribute").DockComponentStateAttributeType>} supportedDockComponents
      */
 
     /**
@@ -262,7 +280,8 @@ class ValetudoRobot {
      */
     getModelDetails() {
         return {
-            supportedAttachments: []
+            supportedAttachments: [],
+            supportedDockComponents: []
         };
     }
 

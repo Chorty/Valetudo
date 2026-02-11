@@ -14,6 +14,12 @@ class BEightParser {
 
         switch (packet.messageType) {
             case MSmartPacket.MESSAGE_TYPE.SETTING: {
+                // Observed on the E20 Evo Plus
+                if (payload[0] === MSmartConst.SETTING.LEGACY_MULTI) {
+                    return "SKIP";
+                }
+
+
                 // 0xaa 0x01 <typeId>
                 switch (payload[2]) {
                     case 0xc4: // FIXME
@@ -36,6 +42,63 @@ class BEightParser {
                 break;
             }
             case MSmartPacket.MESSAGE_TYPE.ACTION: {
+                // Observed on the E20 Evo Plus
+                if (payload[0] === MSmartConst.ACTION.LEGACY_MULTI_ONE) {
+                    switch (payload[1]) {
+                        case MSmartConst.LEGACY_MULTI_ONE_ACTION_SUBCOMMAND.POLL_STATUS: {
+                            const data = BEightParser._parse_status_payload_0x32(payload);
+
+                            return new dtos.MSmartStatusDTO(data);
+                        }
+                        case MSmartConst.LEGACY_MULTI_ONE_ACTION_SUBCOMMAND.GET_DND: {
+                            const data = BEightParser._parse_dnd_payload(
+                                Buffer.concat([
+                                    Buffer.from([0x00]), // Slightly hacky
+                                    payload
+                                ])
+                            );
+
+                            return new dtos.MSmartDndConfigurationDTO(data);
+                        }
+                        case MSmartConst.LEGACY_MULTI_ONE_ACTION_SUBCOMMAND.LIST_MAPS: {
+                            const data = BEightParser._parse_list_maps_payload(
+                                Buffer.concat([
+                                    Buffer.from([0x00]), // Slightly hacky
+                                    payload
+                                ])
+                            );
+
+                            return new dtos.MSmartMapListDTO(data);
+                        }
+                        default: {
+                            Logger.warn(
+                                `Unhandled legacy multi ACTION packet with typeId '${payload[1]}'`,
+                                packet.toHexString()
+                            );
+                        }
+                    }
+                } else if (payload[0] === MSmartConst.ACTION.LEGACY_MULTI_TWO) {
+                    switch (payload[1]) {
+                        case MSmartConst.LEGACY_MULTI_TWO_ACTION_SUBCOMMAND.GET_ACTIVE_ZONES: {
+                            const data = BEightParser._parse_active_zones_payload(
+                                Buffer.concat([
+                                    Buffer.from([0x00]), // Slightly hacky
+                                    payload
+                                ])
+                            );
+
+                            return new dtos.MSmartActiveZonesDTO(data);
+                        }
+                        default: {
+                            Logger.warn(
+                                `Unhandled legacy multi ACTION packet with typeId '${payload[1]}'`,
+                                packet.toHexString()
+                            );
+                        }
+                    }
+                }
+
+
                 // 0xaa 0x01 <typeId>
                 switch (payload[2]) {
                     case MSmartConst.ACTION.GET_STATUS: {
@@ -44,23 +107,7 @@ class BEightParser {
                         return new dtos.MSmartStatusDTO(data);
                     }
                     case MSmartConst.ACTION.LIST_MAPS: {
-                        if (payload.length < 9) {
-                            Logger.warn("Received invalid LIST_MAPS response. Payload too short.");
-                            return undefined;
-                        }
-
-                        const data = {
-                            currentMapId: payload[5],
-                            savedMapIds: []
-                        };
-
-                        const mapBitfield = payload.readUInt16LE(7);
-
-                        for (let i = 0; i < 16; i++) {
-                            if ((mapBitfield >> i) & 1) {
-                                data.savedMapIds.push(i + 1);
-                            }
-                        }
+                        const data = BEightParser._parse_list_maps_payload(payload);
 
                         return new dtos.MSmartMapListDTO(data);
                     }
@@ -69,10 +116,30 @@ class BEightParser {
 
                         return new dtos.MSmartActiveZonesDTO(data);
                     }
+                    case MSmartConst.ACTION.GET_DOCK_POSITION: {
+                        const data = BEightParser._parse_dock_position(payload);
+
+                        return new dtos.MSmartDockPositionDTO(data);
+                    }
+                    case MSmartConst.ACTION.GET_ACTIVE_SEGMENTS: {
+                        const data = BEightParser._parse_active_segments_payload(payload);
+
+                        return new dtos.MSmartActiveSegmentsDTO(data);
+                    }
                     case MSmartConst.ACTION.GET_DND: {
                         const data = BEightParser._parse_dnd_payload(payload);
 
                         return new dtos.MSmartDndConfigurationDTO(data);
+                    }
+                    case MSmartConst.ACTION.GET_MOP_DOCK_SETTINGS: {
+                        const data = BEightParser._parse_mop_dock_settings_payload(payload);
+
+                        return new dtos.MSmartMopDockSettingsDTO(data);
+                    }
+                    case MSmartConst.ACTION.GET_MOP_DOCK_DRYING_SETTINGS: {
+                        const data = BEightParser._parse_mop_dock_drying_settings_payload(payload);
+
+                        return new dtos.MSmartMopDockDryingSettingsDTO(data);
                     }
                     case MSmartConst.ACTION.GET_CLEANING_SETTINGS_1: {
                         const data = BEightParser._parse_cleaning_settings_1_payload(payload);
@@ -95,47 +162,113 @@ class BEightParser {
                 break;
             }
             case MSmartPacket.MESSAGE_TYPE.EVENT: {
-                // 0xaa 0x01 <typeId>
-                switch (payload[2]) {
-                    case MSmartConst.EVENT.STATUS: {
-                        const data = BEightParser._parse_status_payload(payload);
+                if (payload[0] === 0xaa && payload[1] === 0x01) { // "modern" midea
+                    // 0xaa 0x01 <typeId>
+                    switch (payload[2]) {
+                        case MSmartConst.EVENT.STATUS: {
+                            const data = BEightParser._parse_status_payload(payload);
+
+                            return new dtos.MSmartStatusDTO(data);
+                        }
+                        case MSmartConst.EVENT.ACTIVE_ZONES: {
+                            const data = BEightParser._parse_active_zones_payload(payload);
+
+                            return new dtos.MSmartActiveZonesDTO(data);
+                        }
+                        case MSmartConst.EVENT.ERROR: {
+                            return new dtos.MSmartErrorDTO({
+                                error_type: payload[3],
+                                error_desc: payload[4],
+                                sta_index: payload[5],
+                            });
+                        }
+                        case MSmartConst.EVENT.CLEANING_SETTINGS_1: {
+                            const data = BEightParser._parse_cleaning_settings_1_payload(payload);
+
+                            return new dtos.MSmartCleaningSettings1DTO(data);
+                        }
+                        case MSmartConst.EVENT.DND_CONFIGURATION: {
+                            const data = BEightParser._parse_dnd_payload(payload);
+
+                            return new dtos.MSmartDndConfigurationDTO(data);
+                        }
+                        case 0x90: // Some kind of progress, maybe? not sure Only contains a single byte payload
+                            return "SKIP";
+                        case 0xA8: // FIXME
+                            // This seems to be relating to the dock state and what it is doing
+                            // There are also timers in here?
+
+                            // payload[3]; // Mode?. 0x00:Idle?, 0x01:Clean?, 0x02:Empty, 0x03:Dry, 0x05:Wash, possibly hair cuttting?
+                            // payload.readUInt32LE(4); // unclear
+                            // payload.readUInt32LE(8); // timer. Seconds counting up
+                            // payload[12]; // unclear
+                            // payload.readUInt32LE(13); // possibly expected duration of the timer in seconds
+
+                            return "SKIP";
+                        case 0x52:
+                            // No clue where this is coming from. Seen on the J12 about once every minute. Might be a state update?
+                            return "SKIP";
+                        case 0x20:
+                            // Seems to be relating to map state?
+                            return "SKIP";
+                        case 0x21:
+                            // No clue
+                            return "SKIP";
+                        default: {
+                            Logger.warn(
+                                `Unhandled EVENT packet with typeId '${payload[2]}'`,
+                                packet.toHexString()
+                            );
+                        }
+                    }
+                }
+
+                // "legacy" midea
+
+                switch (payload[0]) {
+                    case 0x42: {
+                        const data = BEightParser._parse_status_payload_0x42(payload);
 
                         return new dtos.MSmartStatusDTO(data);
                     }
-                    case MSmartConst.EVENT.ACTIVE_ZONES: {
-                        const data = BEightParser._parse_active_zones_payload(payload);
+                    case 0x4C: {
+                        // This is feedback for any map segment edit commands on the E20 Evo Plus
+                        // It appears as an event with no connection to the command
+                        //
+                        // It's rather ugly that there's now capability logic in here :(
 
-                        return new dtos.MSmartActiveZonesDTO(data);
-                    }
-                    case MSmartConst.EVENT.ERROR: {
-                        return new dtos.MSmartErrorDTO({
-                            error_type: payload[3],
-                            error_desc: payload[4],
-                            sta_index: payload[5],
-                        });
-                    }
-                    case MSmartConst.EVENT.CLEANING_SETTINGS_1: {
-                        const data = BEightParser._parse_cleaning_settings_1_payload(payload);
-
-                        return new dtos.MSmartCleaningSettings1DTO(data);
-                    }
-                    case 0xA8: // FIXME
-                        // This seems to be relating to the dock state and what it is doing
-                        // There are also timers in here?
-
-                        // payload[3]; // Mode?. 0x00:Idle?, 0x01:Clean?, 0x02:Empty, 0x03:Dry, 0x05:Wash, possibly hair cuttting?
-                        // payload.readUInt32LE(4); // unclear
-                        // payload.readUInt32LE(8); // timer. Seconds counting up
-                        // payload[12]; // unclear
-                        // payload.readUInt32LE(13); // possibly expected duration of the timer in seconds
+                        switch (payload[1]) {
+                            case 0:
+                                break; // Successful
+                            case 1:
+                                Logger.warn("Segment split failed: Maximum segment limit reached.");
+                                break;
+                            case 2:
+                                Logger.warn("Segment split failed: Invalid cutting line placement.");
+                                break;
+                            case 3:
+                                Logger.warn("Segment merge failed: No such segmentID.");
+                                break;
+                            case 4:
+                                Logger.warn("Segment merge failed: Segments need to be adjacent.");
+                                break;
+                            case 5:
+                                Logger.warn("Segment split failed: The resulting segment would be too small.");
+                                break;
+                            case 6:
+                                Logger.warn("Segment split failed: No such segmentID.");
+                                break;
+                            case 7:
+                                Logger.warn("Segment split failed: Invalid cutting line placement.");
+                                break;
+                        }
 
                         return "SKIP";
-                    default: {
-                        Logger.warn(
-                            `Unhandled EVENT packet with typeId '${payload[2]}'`,
-                            packet.toHexString()
-                        );
                     }
+                    case 0x48:
+                    case 0x49: // persistent map setting update
+                    case 0x52:
+                        return "SKIP";
                 }
 
                 break;
@@ -152,6 +285,15 @@ class BEightParser {
                     });
                 } else {
                     Logger.warn("Unhandled DOCK packet", packet.toHexString());
+                }
+                break;
+            }
+            case 0x0a: { // Observed on the E20 Evo Plus
+                if (payload[0] === 0xa3) { // Error
+                    return new dtos.MSmartStatusDTO({
+                        error_type: payload[1],
+                        error_desc: payload[2]
+                    });
                 }
                 break;
             }
@@ -187,7 +329,7 @@ class BEightParser {
 
         data.water_level = payload[10]; // 0 - 3, OR high-res starting at >= 100
         data.voice_level = payload[11]; // 0 - 100
-        // 12 => have_reserve_tank ??
+        // 12 might've been the predecessor to job_state
         data.battery_percent = payload[13]; // 0 - 100
 
         // work_area and work_time each have +4 additional bits in payload[22]. - INSANE - TODO validate. It was [23] before the LLM suggested something else
@@ -206,7 +348,7 @@ class BEightParser {
         data.has_mop = !!(mopStatusByte & 0b00000001); // Mops attached bool
         data.has_vibrate_mop = !!(mopStatusByte & 0b00000010);
 
-        data.carpet_switch = payload[19]; // bool, TODO: validate offset
+        data.carpet_switch = payload[19]; // bool, apparently superseded and just relevant for the j12?
 
         // 20 is unknown
 
@@ -246,7 +388,7 @@ class BEightParser {
 
         // 46-49 seem to be a 4 byte number? async_number? not sure
 
-        const generalSwitchBits1 = payload[50];
+        const generalSwitchBits1 = payload[50]; // Also known as general_switch
         data.personal_clean_prefer_switch = !!(generalSwitchBits1 & 0b00000001);
         data.station_inject_fluid_switch = !!(generalSwitchBits1 & 0b00000010);
         data.station_inject_soft_fluid_switch = !!(generalSwitchBits1 & 0b00000100);
@@ -277,6 +419,7 @@ class BEightParser {
         data.telnet_switch = !!(generalSwitchBits3 & 0b00001000);
         data.mop_auto_dry_switch = !!(generalSwitchBits3 & 0b00010000);
         data.ai_grade_avoidance_mode = !!(generalSwitchBits3 & 0b00100000);
+        data.tail_sweep_clean_switch = !!(generalSwitchBits3 & 0b01000000);
         data.pound_sign_switch = !!(generalSwitchBits3 & 0b10000000); // TODO: naming - this is the criss cross pattern with multiple iterations
 
         data.stationCleanFrequency = payload[57];
@@ -290,21 +433,24 @@ class BEightParser {
         data.narrow_zone_recharge_switch = !!(generalSwitchBits4 & 0b00010000);
         data.verification_map_switch = !!(generalSwitchBits4 & 0b00100000);
 
-        const generalSwitchBits5 = payload[65];
-        data.wake_up_switch = !!(generalSwitchBits5 & 0b00000001);
-        data.ai_carpet_avoid_switch = !!(generalSwitchBits5 & 0b00000010);
-        data.carpet_evade_adaptive_switch = !!(generalSwitchBits5 & 0b00000100);
-        data.stuck_mark_switch = !!(generalSwitchBits5 & 0b00001000);
-        data.mop_extend_switch = !!(generalSwitchBits5 & 0b00100000);
-        data.zigzag_to_end_switch = !!(generalSwitchBits5 & 0b01000000);
+        if (payload.length >= 67) {
+            const generalSwitchBits5 = payload[65];
+            data.wake_up_switch = !!(generalSwitchBits5 & 0b00000001);
+            data.ai_carpet_avoid_switch = !!(generalSwitchBits5 & 0b00000010);
+            data.carpet_evade_adaptive_switch = !!(generalSwitchBits5 & 0b00000100);
+            data.stuck_mark_switch = !!(generalSwitchBits5 & 0b00001000);
+            data.mop_extend_switch = !!(generalSwitchBits5 & 0b00100000);
+            data.zigzag_to_end_switch = !!(generalSwitchBits5 & 0b01000000);
 
-        data.remaining_area = payload.readUInt16LE(66);
+            data.remaining_area = payload.readUInt16LE(66);
 
-        const generalSwitchBits6 = payload[68];
-        data.ai_avoidance_switch = !!(generalSwitchBits6 & 0b00001000);
-        data.gap_deep_cleaning_switch = !!(generalSwitchBits6 & 0b00010000);
-        data.furniture_legs_cleaning_switch = !!(generalSwitchBits6 & 0b00100000);
-        data.edge_deep_vacuum_switch = !!(generalSwitchBits6 & 0b10000000);
+            const generalSwitchBits6 = payload[68];
+            data.ai_avoidance_switch = !!(generalSwitchBits6 & 0b00001000);
+            data.gap_deep_cleaning_switch = !!(generalSwitchBits6 & 0b00010000);
+            data.furniture_legs_cleaning_switch = !!(generalSwitchBits6 & 0b00100000);
+            data.edge_deep_vacuum_switch = !!(generalSwitchBits6 & 0b10000000);
+
+        }
 
         if (payload.length >= 71) {
             const generalSwitchBits7 = payload[70];
@@ -332,6 +478,120 @@ class BEightParser {
     }
 
     /**
+     *
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_status_payload_0x42(payload) {
+        const data = {};
+
+        data.work_status = payload[1];
+        data.function_type = payload[2];
+        data.control_type = payload[3];
+        data.move_direction = payload[4];
+        data.work_mode = payload[5];
+        data.fan_level = payload[6];
+        data.work_area = ((payload[21] & 0b00001111) << 8) + payload[7];
+        data.water_level = payload[8];
+        data.voice_level = payload[9];
+
+        data.job_state = payload[10]; //?? TODO <-- This I think is the resumable flag?
+
+        data.battery_percent = payload[11];
+        data.work_time = (((payload[21] & 0b11110000) >> 4) << 8) + payload[12];
+
+        // 13 is a bitset - one bit being mute TODO
+        // 14 is a bitset
+
+
+        const mopStatusByte = payload[16];
+        data.has_mop = !!(mopStatusByte & 0b00000001); // Mops attached bool
+        data.has_vibrate_mop = !!(mopStatusByte & 0b00000010);
+
+        data.carpet_switch = payload[17]; // TODO: verify
+
+        data.speed = payload[18]; //?? TODO
+        data.district_status = payload[19]; //?? TODO
+
+        data.cleaning_type = payload[20];
+
+        // 21 are the additional bits of work time and work area
+
+        data.vibrate_mode = payload[22] ? "careful" : "efficient"; // TODO: should this be string?
+        data.vibrate_switch = !!payload[23];
+
+        const elevatorByte = payload[26];
+        data.elevator_switch = !!(elevatorByte & 0b00000001);
+        data.elevator = !!(elevatorByte & 0b00000010);
+
+        data.dustTimes = payload[27];
+
+        data.collect_dust_mode = payload[30];
+
+        data.child_lock_enabled = !!payload[34];
+        // 35 is childLock_follow_DND
+
+        data.sleep_type = payload[36]; //?? TODO
+
+
+        data.frequent_auto_empty = payload[40] === 1;
+
+        return data;
+    }
+
+    /**
+     *
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_status_payload_0x32(payload) {
+        const data = {};
+
+        data.work_status = payload[2];
+        data.function_type = payload[3];
+        data.control_type = payload[4];
+        data.move_direction = payload[5];
+        data.work_mode = payload[6];
+        data.fan_level = payload[7];
+        data.work_area = ((payload[23] & 0b00001111) << 8) + payload[8];
+        data.water_level = payload[9];
+        data.voice_level = payload[10];
+
+        data.job_state = payload[11]; //?? TODO <-- actually has_reserve_task
+
+        data.battery_percent = payload[12];
+        data.work_time = (((payload[23] & 0b11110000) >> 4) << 8) + payload[13];
+
+        data.carpet_switch = payload[18]; // TODO: verify
+
+        data.speed = payload[20]; //?? TODO
+        data.district_status = payload[21]; //?? TODO
+        data.cleaning_type = payload[22];
+
+        // 23 are the additional bits of work time and work area
+
+        const elevatorByte = payload[28];
+        data.elevator_switch = !!(elevatorByte & 0b00000001);
+        data.elevator = !!(elevatorByte & 0b00000010);
+
+        data.dustTimes = payload[29];
+
+        data.collect_dust_mode = payload[32];
+
+        data.child_lock_enabled = !!payload[36];
+        // 37 is childLock_follow_DND
+
+        data.sleep_type = payload[38];
+
+        data.frequent_auto_empty = payload[42] === 1;
+
+
+        return data;
+    }
+
+    /**
      * @private
      * @param {Buffer} payload
      * @returns {object}
@@ -342,11 +602,6 @@ class BEightParser {
         let offset = 4;
 
         for (let i = 0; i < zoneCount; i++) {
-            if (offset + 10 > payload.length) {
-                Logger.warn("Malformed ACTIVE_ZONES payload. Not enough data for all declared zones.");
-                break;
-            }
-
             zones.push({
                 index: payload.readUInt8(offset),
                 passes: payload.readUInt8(offset + 1),
@@ -367,6 +622,39 @@ class BEightParser {
     }
 
     /**
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_dock_position(payload) {
+        return {
+            valid: payload[3] === 1,
+            x: payload.readUInt16LE(4),
+            y: payload.readUInt16LE(6),
+            angle: payload.readUInt16LE(8),
+        };
+    }
+
+    /**
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_active_segments_payload(payload) {
+        const segmentCount = payload.readUInt8(3);
+        const segmentIds = [];
+        let offset = 4;
+
+        for (let i = 0; i < segmentCount; i++) {
+            segmentIds.push(payload[offset]);
+
+            offset++;
+        }
+
+        return { segmentIds: segmentIds };
+    }
+
+    /**
      *
      * @private
      * @param {Buffer} payload
@@ -384,6 +672,38 @@ class BEightParser {
                 minute: payload[7]
             }
         };
+    }
+
+    /**
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_mop_dock_settings_payload(payload) {
+        const data = {};
+
+        data.mode = payload[3];
+        data.general_backwash_area = payload[4];
+        data.general_cleaning_mode = payload[5];
+
+        data.custom_backwash_area = payload[6];
+        data.custom_cleaning_mode = payload[7];
+
+        return data;
+    }
+
+    /**
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_mop_dock_drying_settings_payload(payload) {
+        const data = {};
+
+        data.mode = payload[3];
+        data.time_remaining = payload.readUint16BE(4); // BE for some reason?
+
+        return data;
     }
 
     /**
@@ -422,6 +742,33 @@ class BEightParser {
         data.enhanced_carpet_avoidance = !!(data.parameter_bitfield & dtos.MSmartCarpetBehaviorSettingsDTO.PARAMETER_BIT.ENHANCED_CARPET_AVOIDANCE);
 
         return data;
+    }
+
+    /**
+     * @private
+     * @param {Buffer} payload
+     * @returns {object}
+     */
+    static _parse_list_maps_payload(payload) {
+        const data = {
+            currentMapId: payload[4],
+            savedMapIds: []
+        };
+
+        const mapCount = payload[5];
+        const mapBitfield = payload.readUInt16LE(7);
+
+        for (let i = 0; i < 16; i++) {
+            if ((mapBitfield >> i) & 1) {
+                data.savedMapIds.push(i + 1);
+            }
+        }
+
+        if (mapCount !== data.savedMapIds.length) {
+            Logger.warn("Reported map count does not match reported map IDs. ???");
+        }
+
+        return new dtos.MSmartMapListDTO(data);
     }
 }
 

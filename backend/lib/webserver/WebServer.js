@@ -7,8 +7,6 @@ const path = require("path");
 const swaggerUi = require("swagger-ui-express");
 const swaggerValidation = require("openapi-validator-middleware");
 
-const listEndpoints = require("express-list-endpoints");
-
 const Logger = require("../Logger");
 
 const notFoundPages = require("./res/404");
@@ -70,6 +68,8 @@ class WebServer {
         if (this.webserverConfig.blockExternalAccess) {
             this.app.use(Middlewares.ExternalAccessCheckMiddleware);
         }
+
+        this.app.use(Middlewares.EggTermMiddleware);
 
         const authMiddleware = this.createAuthMiddleware();
         const dynamicAuth = dynamicMiddleware.create([]);
@@ -145,25 +145,6 @@ class WebServer {
 
         this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
 
-        this.app.get("/api/v2", (req, res) => {
-            let endpoints = listEndpoints(this.app);
-            let endpointsMap;
-            endpoints = endpoints.sort((a,b) => {
-                if (a.path > b.path) {
-                    return 1;
-                } else if (b.path > a.path) {
-                    return -1;
-                } else {
-                    return 0;
-                }
-            });
-            endpointsMap = endpoints.reduce((acc, curr) => {
-                acc[curr.path] = {methods: curr.methods}; return acc;
-            }, {});
-
-            res.json(endpointsMap);
-        });
-
 
         this.robot.initModelSpecificWebserverRoutes(this.app);
 
@@ -178,7 +159,7 @@ class WebServer {
             }
         });
 
-        this.app.get("*", (req, res) => {
+        this.app.get("*splat", (req, res) => {
             res.status(404).send(Tools.GET_RANDOM_ARRAY_ELEMENT(Object.values(notFoundPages)));
         });
 

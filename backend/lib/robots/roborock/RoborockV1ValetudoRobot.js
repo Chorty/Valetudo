@@ -19,10 +19,24 @@ class RoborockV1ValetudoRobot extends RoborockValetudoRobot {
             robot: this,
             velocityLimit: 0.29
         }));
+
+        this.registerCapability(new capabilities.RoborockCarpetModeControlCapability({
+            robot: this,
+        }));
     }
 
     getModelName() {
         return "V1";
+    }
+
+    getModelDetails() {
+        return Object.assign(
+            {},
+            super.getModelDetails(),
+            {
+                supportedAttachments: []
+            }
+        );
     }
 
     static IMPLEMENTATION_AUTO_DETECTION_HANDLER() {

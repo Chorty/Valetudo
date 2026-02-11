@@ -166,6 +166,30 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             }
         }));
 
+        this.registerCapability(new capabilities.DreameMapSegmentMaterialControlCapability({
+            robot: this,
+            miot_actions: {
+                map_edit: {
+                    siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
+                    aiid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.ACTIONS.EDIT.AIID
+                }
+            },
+            miot_properties: {
+                mapDetails: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MAP_DETAILS.PIID
+                },
+                actionResult: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.ACTION_RESULT.PIID
+                }
+            },
+            supportedMaterials: [
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.GENERIC,
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.TILE,
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_VERTICAL,
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_HORIZONTAL,
+            ]
+        }));
+
 
         [
             capabilities.DreameCarpetModeControlCapability,
@@ -183,6 +207,10 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             capabilities.DreameMopDockMopWashTemperatureControlCapabilityV2,
             capabilities.DreameMopTwistControlCapabilityV2,
             capabilities.DreameMopExtensionFurnitureLegHandlingControlCapability,
+            capabilities.DreameMopDockMopAutoDryingControlCapability,
+            capabilities.DreameFloorMaterialDirectionAwareNavigationControlCapability,
+            capabilities.DreameCleanRouteControlCapabilityV2,
+            capabilities.DreameMopDockMopDryingTimeControlCapability,
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
@@ -192,11 +220,9 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DRYING_TIME),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_DETERGENT),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_DRYING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_DETECTION_AUTO_DEEP_CLEANING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WATER_USAGE),
@@ -205,8 +231,8 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DETACH_MOPS),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_CLEANING_PROCESS_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.WATER_HOOKUP_TEST_TRIGGER),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_ROUTE_WITH_QUICK),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_ON_CARPET),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_FIRST),
             ]
         }));
 
@@ -214,10 +240,7 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             value: entities.state.attributes.DockStatusStateAttribute.VALUE.IDLE
         }));
 
-        this.state.upsertFirstMatchingAttribute(new entities.state.attributes.AttachmentStateAttribute({
-            type: entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
-            attached: false
-        }));
+
     }
 
     parseAndUpdateState(data) {
@@ -259,6 +282,23 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             {
                 siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
                 piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_SETTINGS.PIID
+            },
+
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.PROPERTIES.DOCK_FRESHWATER_TANK_ATTACHMENT.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.PROPERTIES.DOCK_WASTEWATER_TANK_ATTACHMENT.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.PROPERTIES.DOCK_DUSTBAG_ATTACHMENT.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.PROPERTIES.DOCK_DETERGENT_ATTACHMENT.PIID
             }
         ];
     }
@@ -274,6 +314,12 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             {
                 supportedAttachments: [
                     stateAttrs.AttachmentStateAttribute.TYPE.MOP,
+                ],
+                supportedDockComponents: [
+                    stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_CLEAN,
+                    stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_DIRTY,
+                    stateAttrs.DockComponentStateAttribute.TYPE.DETERGENT,
+                    stateAttrs.DockComponentStateAttribute.TYPE.DUSTBAG,
                 ]
             }
         );

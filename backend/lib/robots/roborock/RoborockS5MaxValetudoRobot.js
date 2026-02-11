@@ -21,8 +21,7 @@ class RoborockS5MaxValetudoRobot extends RoborockValetudoRobot {
                 options,
                 {
                     fanSpeeds: FAN_SPEEDS,
-                    waterGrades: WATER_GRADES,
-                    supportedAttachments: SUPPORTED_ATTACHMENTS
+                    waterGrades: WATER_GRADES
                 }
             )
         );
@@ -49,7 +48,8 @@ class RoborockS5MaxValetudoRobot extends RoborockValetudoRobot {
             capabilities.RoborockMapSegmentEditCapability,
             capabilities.RoborockMapSegmentRenameCapability,
             capabilities.RoborockMappingPassCapability,
-            capabilities.RoborockHighResolutionManualControlCapability
+            capabilities.RoborockHighResolutionManualControlCapability,
+            capabilities.RoborockCarpetModeControlCapability,
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
@@ -75,6 +75,19 @@ class RoborockS5MaxValetudoRobot extends RoborockValetudoRobot {
         if (fs.existsSync(RESERVE_CONF_PATH)) {
             this.deviceConfPath = RESERVE_CONF_PATH;
         }
+    }
+
+    getModelDetails() {
+        return Object.assign(
+            {},
+            super.getModelDetails(),
+            {
+                supportedAttachments: [
+                    entities.state.attributes.AttachmentStateAttribute.TYPE.WATERTANK,
+                    entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
+                ]
+            }
+        );
     }
 
     static IMPLEMENTATION_AUTO_DETECTION_HANDLER() {
@@ -104,10 +117,5 @@ const WATER_GRADES = {
     [entities.state.attributes.PresetSelectionStateAttribute.INTENSITY.MEDIUM]: 202,
     [entities.state.attributes.PresetSelectionStateAttribute.INTENSITY.HIGH]: 203
 };
-
-const SUPPORTED_ATTACHMENTS = [
-    entities.state.attributes.AttachmentStateAttribute.TYPE.WATERTANK,
-    entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
-];
 
 module.exports = RoborockS5MaxValetudoRobot;

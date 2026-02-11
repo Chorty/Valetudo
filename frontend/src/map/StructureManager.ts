@@ -12,6 +12,21 @@ import GoToTargetMapStructure from "./structures/map_structures/GoToTargetMapStr
 import {median} from "../utils";
 import {PointCoordinates} from "./utils/types";
 import ObstacleMapStructure from "./structures/map_structures/ObstacleMapStructure";
+import CarpetMapStructure from "./structures/map_structures/CarpetMapStructure";
+
+const MAP_STRUCTURES = [
+    ActiveZoneMapStructure,
+    CarpetMapStructure,
+    ChargerLocationMapStructure,
+    GoToTargetMapStructure,
+    NoGoAreaMapStructure,
+    NoMopAreaMapStructure,
+    ObstacleMapStructure,
+    RobotPositionMapStructure,
+    SegmentLabelMapStructure,
+    VirtualWallMapStructure,
+] as const;
+type MapStructureType = typeof MAP_STRUCTURES[number]["TYPE"];
 
 
 class StructureManager {
@@ -38,8 +53,8 @@ class StructureManager {
             ...this.buildMapStructuresFromLayerMapData(rawMap.layers)
         ];
 
-        this.mapStructures.sort((a,b) => {
-            return TYPE_SORT_MAPPING[a.type] - TYPE_SORT_MAPPING[b.type];
+        this.mapStructures.sort((a, b) => {
+            return (TYPE_SORT_MAPPING[a.type as MapStructureType] ?? 0) - (TYPE_SORT_MAPPING[b.type as MapStructureType] ?? 0);
         });
     }
 
@@ -129,6 +144,23 @@ class StructureManager {
                     ));
                     break;
                 }
+                case RawMapEntityType.Carpet: {
+                    // Carpets can be polygons with an arbitrary point count
+                    const points: Array<{x: number, y: number}> = [];
+
+                    for (let i = 0; i < e.points.length; i += 2) {
+                        const p = this.convertCMCoordinatesToPixelSpace({
+                            x: e.points[i],
+                            y: e.points[i + 1]
+                        });
+                        points.push(p);
+                    }
+
+                    mapStructures.push(new CarpetMapStructure(
+                        points
+                    ));
+                    break;
+                }
             }
         });
 
@@ -198,7 +230,8 @@ class StructureManager {
                         !!previouslySelectedSegmentLabelsMap[l.metaData.segmentId ?? ""],
                         !!l.metaData.active,
                         l.metaData.area,
-                        l.metaData.name
+                        l.metaData.name,
+                        l.metaData.material
                     ));
 
                     break;
@@ -244,13 +277,22 @@ class StructureManager {
 }
 
 // This is important because it determines the draw order
-const TYPE_SORT_MAPPING = {
+const TYPE_SORT_MAPPING: Record<MapStructureType, number> = {
+    [CarpetMapStructure.TYPE]: 4,
+
     [NoGoAreaMapStructure.TYPE]: 5,
     [NoMopAreaMapStructure.TYPE]: 5,
     [VirtualWallMapStructure.TYPE]: 5,
 
+    [ObstacleMapStructure.TYPE]: 7,
+
+    [SegmentLabelMapStructure.TYPE]: 9,
+
+    [ActiveZoneMapStructure.TYPE]: 10,
+    [GoToTargetMapStructure.TYPE]: 10,
+
     [ChargerLocationMapStructure.TYPE]: 14,
-    [SegmentLabelMapStructure.TYPE]: 15,
+
     [RobotPositionMapStructure.TYPE]: 16
 };
 

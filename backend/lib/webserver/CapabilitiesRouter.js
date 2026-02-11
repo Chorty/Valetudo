@@ -95,6 +95,12 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.MopDockMopWashTemperatureControlCapability.TYPE]: capabilityRouters.MopDockMopWashTemperatureControlCapabilityRouter,
     [capabilities.MopTwistControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.MopExtensionFurnitureLegHandlingControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
+    [capabilities.MopDockMopAutoDryingControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
+    [capabilities.MapSegmentMaterialControlCapability.TYPE]: capabilityRouters.MapSegmentMaterialControlCapabilityRouter,
+    [capabilities.FloorMaterialDirectionAwareNavigationControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
+    [capabilities.CleanRouteControlCapability.TYPE]: capabilityRouters.CleanRouteControlCapabilityRouter,
+    [capabilities.MopDockMopDryingTimeControlCapability.TYPE]: capabilityRouters.MopDockMopDryingTimeControlCapabilityRouter,
+    [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
 };
 
 module.exports = CapabilitiesRouter;

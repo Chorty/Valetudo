@@ -1,5 +1,6 @@
 import {
     Box,
+    Button,
     Checkbox,
     Divider,
     FormControlLabel,
@@ -15,7 +16,6 @@ import {
     useNTPClientConfigurationQuery,
     useNTPClientStatusQuery
 } from "../../api";
-import {LoadingButton} from "@mui/lab";
 
 import {
     AccessTime as NTPIcon,
@@ -255,15 +255,14 @@ const NTPConnectivity = (): React.ReactElement => {
             >
                 <Typography color="info">
                     Valetudo needs a synchronized clock for timers to work and the log timestamps to make sense.
-                    Furthermore, the integrated updater may not work if the clock is set wrongly due to TLS
-                    certificates usually only being valid within a particular period of time.
+                    Additionally, anything using TLS (e.g. the inbuilt Updater) also requires the correct current time to work.
                 </Typography>
             </InfoBox>
 
             <Divider sx={{mt: 1}} style={{marginBottom: "1rem"}}/>
             <Grid2 container>
                 <Grid2 style={{marginLeft: "auto"}}>
-                    <LoadingButton
+                    <Button
                         loading={configurationUpdating}
                         color="primary"
                         variant="outlined"
@@ -280,7 +279,7 @@ const NTPConnectivity = (): React.ReactElement => {
                         }}
                     >
                         Save configuration
-                    </LoadingButton>
+                    </Button>
                 </Grid2>
             </Grid2>
         </>

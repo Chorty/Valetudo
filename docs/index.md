@@ -23,7 +23,7 @@ To choose the right robot to buy, head over to [Buying supported robots](https:/
 If you want to learn more about why I'm building Valetudo, the answer is actually pretty simple:<br/>
 When I was looking for a vacuum robot for myself, I didn't find anything that matched what I was looking for.<br/>
 Thus, in a brief moment of hubris, I thought to myself: "How hard can it be?".<br/>
-Now, more than five years later, we're here and I'm quite happy with how it turned out.
+Now, more than seven years later, we're here, and I'm quite happy with how it turned out.
 
 Valetudo is licensed under the Apache-2.0 open-source license, because you need to be able to know what your smart
 devices are doing and also alter (some parts of) it without being dependent on some vendor and/or third party.
@@ -34,31 +34,30 @@ advantage of that and sell Valetudo; especially not as their own work.<br/>
 Please don't disappoint me. Thank you.
 
 
-These are the Valetudo Docs.
+These are the Valetudo Docs. Just like the software they accompany, they aim to (to some degree) deconstruct the genres IoT and FOSS.<br/>
 Simply use the navigation menu on the left to find what you're looking for.
 
-The [getting started guide](https://valetudo.cloud/pages/general/getting-started.html) is a good place to start.
+The [newcomer guide](https://valetudo.cloud/pages/general/newcomer-guide.html) is a good place to start.
 
 If you're looking to make content out of Valetudo, please read [Media & Content Creators](https://valetudo.cloud/pages/general/media.html).
 
 ### Screenshots
 
-#### Phone/Mobile
-<img src="https://user-images.githubusercontent.com/974410/211155741-d6430660-a6b2-48ab-8ddc-2217328444de.png" width=360>
-<img src="https://github.com/user-attachments/assets/eaad6fe0-dd1e-4f56-b6f9-f65954aecac7" width=360>
+### Phone/Mobile
+<img width="360" src="https://github.com/user-attachments/assets/21b6cb92-43e8-4c49-b7f4-e15bedaab094" />
+<img width="360" src="https://github.com/user-attachments/assets/e4b32931-1116-4d19-bece-e48746a89664" />
 
-<img src="https://user-images.githubusercontent.com/974410/211155650-7cac266c-ffeb-432d-8656-5241a5d6f227.png" width=360>
-<img src="https://user-images.githubusercontent.com/974410/211155656-d43ee25e-1ae6-432f-95ff-1a39d294828d.png" width=360>
+<img width="360" src="https://github.com/user-attachments/assets/4fdad83d-3df1-4d24-929b-004ce6b3bff0" />
+<img width="360" src="https://github.com/user-attachments/assets/422d54c8-6546-4616-9cd6-c1239be78c32" />
 
-#### Tablet/Desktop
+### Tablet/Desktop
 
-![image](https://github.com/user-attachments/assets/dc18723f-b15f-4500-907b-bad6d7dd1a4f)
+<img width="1024" src="https://github.com/user-attachments/assets/28e7dea0-db0a-482b-92ba-8e9774b2416f" />
 
-![image](https://user-images.githubusercontent.com/974410/211155836-9199616a-efde-4238-91c4-24158ba67677.png)
+<img width="1024" src="https://github.com/user-attachments/assets/f9217069-ee10-42f4-8897-0c90703201b7" />
 
-![image](https://user-images.githubusercontent.com/974410/211155860-9926b126-d1fe-41b1-8c83-1af21bf8caf2.png)
+<img width="1024" src="https://github.com/user-attachments/assets/d7281e75-32c7-4a1e-a10b-95aef3b06a78" />
 
-![image](https://user-images.githubusercontent.com/974410/211155880-ff184776-86fe-4c2f-9556-4d556cfa12f4.png)
 
 ### Valetudo is a garden <a id="garden"></a>
 This project is the hobby of some random guy on the internet. There is no intent to commercialize it, grow it
@@ -89,11 +88,20 @@ Therefore, a garden being build with a specific vision does not take away the ab
 
 ### Further questions?
 
+<div class="alert alert-note" role="alert">
+  <p>
+    <strong>Important:</strong><br/>
+    Before asking/joining/interacting, remember that you're entering a workshop that - fueled by naive optimism - was made partially accessible to the public under strict conditions.
+    <br/><br/>
+    I hang out there in my free time, and, as any human, I'd like to spend my free time pleasantly and surrounded by people that understand and respect me.
+    Contrary to e.g. your workplace, where tolerating is all that is expected of you, understanding cannot be made optional in such a space, as the economics that allow it to exist would otherwise not work out.
+</p>
+</div>
+
 1. [dust_announce - Very low frequency updates about Valetudo and Rooting](https://t.me/dust_announce)
 
 2. <a href="https://t.me/+F00lFE1NVUc2NTAy" data-si="34097f03527c7c0375540b07132a652161373c7b0d3b031c6a640d4556614159600b09351b1c087d">Valetudo Telegram group</a>
 
-Be aware that there is an automod active on Telegram that will automatically kick users without a username and/or a screen name with less than 2 characters.
-If you're unable to join, make sure that your account passes those requirements, as they are necessary for the moderation tools to work.
+3. [So you've been banned?](https://valetudo.cloud/pages/general/so-youve-been-banned.html)
 
 Any other mediums such as IRC, Matrix or Reddit are unofficial channels not connected to the project and might contain incorrect or outdated information.

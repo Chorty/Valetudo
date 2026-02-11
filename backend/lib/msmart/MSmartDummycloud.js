@@ -57,6 +57,7 @@ class MSmartDummycloud {
 
         this.commandTopic = "device/unknown/down";
         this.aiCommandTopic = "ai/unknown/down";
+        this.mapCommandTopic = "map/unknown/down";
 
         /**
          * @type {Object.<string, {
@@ -102,10 +103,16 @@ class MSmartDummycloud {
                 if (subscription.topic.endsWith("/down")) {
                     if (subscription.topic.startsWith("device/")) {
                         this.commandTopic = subscription.topic;
-                        Logger.info(`MSmartDummycloud device command topic: ${this.commandTopic}`);
+
+                        Logger.debug(`MSmartDummycloud device command topic: ${this.commandTopic}`);
                     } else if (subscription.topic.startsWith("ai/")) {
                         this.aiCommandTopic = subscription.topic;
-                        Logger.info(`MSmartDummycloud AI command topic: ${this.aiCommandTopic}`);
+
+                        Logger.debug(`MSmartDummycloud AI command topic: ${this.aiCommandTopic}`);
+                    } else if (subscription.topic.startsWith("map/")) { // J12 (and older?)
+                        this.mapCommandTopic = subscription.topic;
+
+                        Logger.debug(`MSmartDummycloud map command topic: ${this.mapCommandTopic}`);
                     }
                 }
             });
@@ -137,33 +144,22 @@ class MSmartDummycloud {
 
         app.post("/acl/device/register", (req, res) => {
             const incomingHostname = req.hostname;
-            Logger.info(`Handling provisioning request for hostname: ${incomingHostname}. ${JSON.stringify(req.body, null, 2)}`);
+            Logger.info(`Handling provisioning request for: ${incomingHostname}.`, req.body);
 
             const responsePayload = {
                 "errorCode": "0",
                 "msg": "success",
-                "reason": "success",
                 "data": {
                     "deviceId": req.body.uuid,
-                    "uuid": req.body.uuid,
-                    "productId": req.body.productId,
-                    "mac": req.body.mac,
-                    "sn": req.body.sn,
-                    "ip": req.ip,
-                    "key": "MOCK_DEVICE_KEY_" + Date.now(),
-                    "bindToken": "MOCK_BIND_TOKEN_" + Date.now(),
                     "mqttInfo": {
                         "clientId": req.body.uuid,
                         "serverAddress": incomingHostname,
-                        "port": MSmartDummycloud.MQTT_PORT,
                         "authType": 1,
                         "certificatePem": this.dummyClientCert,
-                        "publicKey": this.dummyClientCert,
                         "privateKey": this.dummyClientKey
                     },
                     "extra": {
                         "mapHost": `http://${incomingHostname}`,
-                        "odmServiceHost": `https://${incomingHostname}`,
                         "otaHost": `http://${incomingHostname}`,
                         "logHost": `http://${incomingHostname}`,
                         "voiceHost": `http://${incomingHostname}`,
@@ -172,7 +168,7 @@ class MSmartDummycloud {
                 }
             };
 
-            Logger.info("Constructed Response Payload:", JSON.stringify(responsePayload, null, 2));
+            Logger.debug("Constructed Response Payload:", responsePayload);
             res.status(200).json(responsePayload);
         });
 
@@ -182,8 +178,12 @@ class MSmartDummycloud {
         });
 
         app.get("/", (req, res, next) => {
-            if (req.hostname.endsWith("ipify.org") || req.hostname.endsWith("ipify.cn")) {
-                Logger.info(`Handling IP lookup request for ${req.hostname}.`);
+            if (
+                req.hostname.endsWith("ipify.org") ||
+                req.hostname.endsWith("ipify.cn") ||
+                req.hostname === "127.000.13.37"
+            ) {
+                Logger.debug(`Handling IP lookup request for ${req.hostname}.`);
 
                 res.status(200).send(req.ip);
             } else {
@@ -200,7 +200,7 @@ class MSmartDummycloud {
 
         app.post("/v1/dev2pro/m7/map/list/:part", (req, res) => {
             if (req.body) {
-                Logger.trace(`${req.url}: `, JSON.stringify(req.body, null, 2));
+                Logger.trace(`${req.url}: `, req.body);
 
                 this.onUpload(req.params.part, req.body.data); //TODO: perhaps validate types
             }
@@ -211,7 +211,7 @@ class MSmartDummycloud {
 
         app.post("/v1/dev2pro/m7/map/list/mop/:part", (req, res) => {
             if (req.body) {
-                Logger.trace(`${req.url}: `, JSON.stringify(req.body, null, 2));
+                Logger.trace(`${req.url}: `, req.body);
 
                 this.onUpload(`mop_${req.params.part}`, req.body.data); //TODO: perhaps validate types
             }
@@ -220,9 +220,20 @@ class MSmartDummycloud {
             res.status(200).send();
         });
 
+        // Observed on the e20 evo plus with type "track". Not sure what it means. Predicted path perhaps?
+        app.post("/v1/dev2pro/m7/map/list/target/:part", (req, res) => {
+            if (req.body) {
+                Logger.trace(`${req.url}: `, req.body);
+            }
+
+            res.status(200).send();
+        });
+
+
+
         app.post("/v1/dev2pro/m7/map/part/upload", (req, res) => {
             if (req.body) {
-                Logger.trace(`${req.url}: `, JSON.stringify(req.body, null, 2));
+                Logger.trace(`${req.url}: `, req.body);
 
                 this.onUpload(req.body.mapPart, req.body.data);
             }
@@ -232,7 +243,7 @@ class MSmartDummycloud {
 
         app.post("/v1/dev2pro/cruise/list/points", (req, res) => {
             if (req.body) {
-                Logger.trace(`${req.url}: `, JSON.stringify(req.body, null, 2));
+                Logger.trace(`${req.url}: `, req.body);
 
                 this.onUpload("points", req.body.data);
             }
@@ -354,7 +365,7 @@ class MSmartDummycloud {
         app.post("/v1/ota/status/update", (req, res) => {
             Logger.debug("Handling OTA status update request.");
             if (req.body) {
-                Logger.debug("OTA Status Update Body:", JSON.stringify(req.body, null, 2));
+                Logger.debug("OTA Status Update Body:", req.body);
             }
 
             res.status(200).json({ msg: "OK", code: "0" });
@@ -362,7 +373,7 @@ class MSmartDummycloud {
 
         app.post("/logService/v1/dev/event-tracking", (req, res) => {
             if (req.body) {
-                Logger.trace(`${req.url}: `, JSON.stringify(req.body, null, 2));
+                Logger.trace(`${req.url}: `, req.body);
 
                 this.onEvent(req.body.type, req.body.value);
             }
@@ -373,7 +384,7 @@ class MSmartDummycloud {
         app.post("/v3/dev2pro/login", (req, res) => {
             Logger.debug("Received login request");
             if (req.body) {
-                Logger.debug("Body:", JSON.stringify(req.body, null, 2));
+                Logger.debug("Body:", req.body);
             }
 
             res.status(200).json({ data: "i-am-not-a-token" });
@@ -382,7 +393,7 @@ class MSmartDummycloud {
         app.post("/v3/dev2pro/ability", (req, res) => {
             Logger.debug("Received ability request");
             if (req.body) {
-                Logger.debug("Body:", JSON.stringify(req.body, null, 2));
+                Logger.debug("Body:", req.body);
             }
 
             res.status(200).json({
@@ -454,6 +465,11 @@ class MSmartDummycloud {
             res.status(200).send();
         });
 
+        // Clean record (possibly after a successful one?) as a protobuf. FW just expects 200. Observed on J15 Max Ultra FW 529
+        app.post("/v3/dev2pro/m7/work/status/upload/proto", (req, res) => {
+            res.status(200).send();
+        });
+
         app.post("/v1/biz/file/device/uploadFileUrl", (req, res) => {
             Logger.trace("Received request for a new presigned file upload URL");
 
@@ -472,8 +488,21 @@ class MSmartDummycloud {
             res.status(200).send();
         });
 
+        // This seems to be a handler called when some internal error occurs?
+        // It asks the cloud which logfiles should be uploaded
+        // Observed on the J15 Max Ultra FW 529
+        app.post("/v1/dev/feedback/log/config", (req, res) => {
+            if (req.body) {
+                Logger.trace(`${req.url}: `, req.body);
+            }
 
-        app.all("*", (req, res) => {
+            // The code, expecting a data object, will just abort further execution if it doesn't find it
+            // This is cleaner than giving it a default log file to upload, as that will then go through all the trouble for no reason
+            // See also iot_node OnErrorUploadLog
+            res.status(200).json({});
+        });
+
+        app.all("*splat", (req, res) => {
             if (this.onHttpRequest) {
                 const handled = this.onHttpRequest(req, res);
                 if (handled) {
@@ -483,7 +512,7 @@ class MSmartDummycloud {
 
             Logger.info("Unhandled MSmartDummycloud HTTP Request", {
                 protocol: req.secure ? "HTTPS" : "HTTP",
-                host: req.headers.host,
+                host: req.hostname,
                 method: req.method,
                 path: req.path,
                 headers: req.headers,
@@ -507,54 +536,81 @@ class MSmartDummycloud {
     handleIncomingCloudMessage(msg) {
         const { topic, payload } = msg;
 
-        try {
-            // Parse the payload.data as MSmartPacket
-            const responseHex = payload.data;
-            const responseBuffer = Buffer.from(responseHex, "hex");
-            const responsePacket = MSmartPacket.FROM_BYTES(responseBuffer);
+        if (typeof payload.data === "string") {
+            try {
+                const responseBuffer = Buffer.from(payload.data, "hex");
+                const responsePacket = MSmartPacket.FROM_BYTES(responseBuffer);
 
-            Logger.trace("Parsed incoming message:", {
+                Logger.trace("Parsed incoming message:", {
+                    topic: topic,
+                    nonce: payload.nonce,
+                    deviceType: responsePacket.deviceType,
+                    messageType: responsePacket.messageType,
+                    payload: responsePacket.payload,
+                    payloadLength: responsePacket.payload.length
+                });
+
+                if (payload.nonce && this.pendingRequests[payload.nonce]) {
+                    const pendingRequest = this.pendingRequests[payload.nonce];
+
+                    clearTimeout(pendingRequest.timeout_id);
+                    pendingRequest.resolve(responsePacket);
+                    delete this.pendingRequests[payload.nonce];
+
+                    Logger.debug(`MSmartDummycloud received response for nonce ${payload.nonce}`);
+                    return;
+                }
+
+                if (!this.onIncomingCloudMessage(responsePacket)) {
+                    Logger.info("Unhandled message received:", responsePacket);
+                }
+
+            } catch (parseError) {
+                Logger.warn("Failed to parse incoming message:", parseError);
+
+                if (payload.nonce && this.pendingRequests[payload.nonce]) {
+                    const pendingRequest = this.pendingRequests[payload.nonce];
+                    clearTimeout(pendingRequest.timeout_id);
+
+                    pendingRequest.reject(new Error(`Failed to parse MSmart response: ${parseError.message}`));
+                    delete this.pendingRequests[payload.nonce];
+                }
+            }
+        } else if (payload.protocol === "map") { // Observed on the J12
+            Logger.trace("Received map-type message:", {
                 topic: topic,
                 nonce: payload.nonce,
-                deviceType: responsePacket.deviceType,
-                messageType: responsePacket.messageType,
-                payload: responsePacket.payload,
-                payloadLength: responsePacket.payload.length
+                data: payload.data
             });
 
-            if (payload.nonce && this.pendingRequests[payload.nonce]) {
-                const pendingRequest = this.pendingRequests[payload.nonce];
-
-                clearTimeout(pendingRequest.timeout_id);
-                pendingRequest.resolve(responsePacket);
-                delete this.pendingRequests[payload.nonce];
-
-                Logger.debug(`MSmartDummycloud received response for nonce ${payload.nonce}`);
-                return;
+            if (typeof payload.data.fullMap === "string") {
+                this.onUpload("map", payload.data.fullMap);
+            } else {
+                Logger.warn("Unhandled map-type message");
             }
+        } else if (payload.protocol === "track") { // Observed on the J12
+            Logger.trace("Received track-type message:", {
+                topic: topic,
+                nonce: payload.nonce,
+                data: payload.data
+            });
 
-            if (!this.onIncomingCloudMessage(responsePacket)) {
-                Logger.info("Unhandled message received:", responsePacket);
+            if (typeof payload.data.fullTrack === "string") {
+                this.onUpload("track", payload.data.fullTrack);
+            } else {
+                Logger.warn("Unhandled track-type message");
             }
-
-        } catch (parseError) {
-            Logger.warn("Failed to parse incoming message:", parseError);
-
-            if (payload.nonce && this.pendingRequests[payload.nonce]) {
-                const pendingRequest = this.pendingRequests[payload.nonce];
-                clearTimeout(pendingRequest.timeout_id);
-
-                pendingRequest.reject(new Error(`Failed to parse MSmart response: ${parseError.message}`));
-                delete this.pendingRequests[payload.nonce];
-            }
+        } else {
+            Logger.warn("Unhandled MQTT message");
         }
     }
 
     /**
-     * @param {string} command
+     * @param {string|object} command
      * @param {object} [options]
      * @param {number} [options.timeout] - milliseconds
-     * @param {"device"|"ai"} [options.target] - defaults to "device"
+     * @param {"device"|"ai"|"map"} [options.target] - defaults to "device"
+     * @param {boolean} [options.fireAndForget]
      * @returns {Promise<import("./MSmartPacket")>}
      */
     sendCommand(command, options) {
@@ -575,11 +631,12 @@ class MSmartDummycloud {
 
     /**
      * @private
-     * 
-     * @param {string} command
+     *
+     * @param {string|object} command
      * @param {object} [options]
      * @param {number} [options.timeout] - milliseconds
-     * @param {"device"|"ai"} [options.target] - defaults to "device"
+     * @param {"device"|"ai"|"map"} [options.target] - defaults to "device"
+     * @param {boolean} [options.fireAndForget]
      * @returns {Promise<import("./MSmartPacket")>}
      */
     actualSendCommand(command, options = {}) {
@@ -594,26 +651,40 @@ class MSmartDummycloud {
             });
 
             const target = options?.target ?? "device";
-            const targetTopic = target === "ai" ? this.aiCommandTopic : this.commandTopic;
+            let targetTopic;
+            switch (target) {
+                case "ai":
+                    targetTopic = this.aiCommandTopic;
+                    break;
+                case "device":
+                    targetTopic = this.commandTopic;
+                    break;
+                case "map":
+                    targetTopic = this.mapCommandTopic;
+                    break;
+            }
 
-            this.pendingRequests[nonce] = {
-                resolve: resolve,
-                reject: reject,
-                command: command,
-                onTimeoutCallback: () => {
-                    Logger.debug(`Request with nonce ${nonce} timed out`);
-                    delete this.pendingRequests[nonce];
+            const fireAndForget = !!options?.fireAndForget;
+            if (!fireAndForget) {
+                this.pendingRequests[nonce] = {
+                    resolve: resolve,
+                    reject: reject,
+                    command: command,
+                    onTimeoutCallback: () => {
+                        Logger.debug(`Request with nonce ${nonce} timed out`);
+                        delete this.pendingRequests[nonce];
 
-                    reject(new MSmartTimeoutError({nonce: nonce, command: command}));
-                }
-            };
+                        reject(new MSmartTimeoutError({nonce: nonce, command: command}));
+                    }
+                };
 
-            this.pendingRequests[nonce].timeout_id = setTimeout(
-                () => {
-                    this.pendingRequests[nonce].onTimeoutCallback();
-                },
-                options?.timeout ?? this.timeout
-            );
+                this.pendingRequests[nonce].timeout_id = setTimeout(
+                    () => {
+                        this.pendingRequests[nonce].onTimeoutCallback();
+                    },
+                    options?.timeout ?? this.timeout
+                );
+            }
 
             Logger.trace(`Sending command to ${targetTopic}`, payload);
 
@@ -636,6 +707,9 @@ class MSmartDummycloud {
                         }
 
                         reject(error);
+                    } else if (options.fireAndForget) {
+                        // This is a bit janky, but it allows us to have the return type always be an MSmartPacket
+                        resolve(new MSmartPacket({messageType: 0, payload: Buffer.alloc(0)}));
                     }
                 }
             );

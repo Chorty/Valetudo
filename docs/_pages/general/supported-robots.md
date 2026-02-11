@@ -1,12 +1,11 @@
 ---
 title: Supported Robots
 category: General
-order: 9
+order: 10
 ---
 
 # Supported Robots
 
-At the time of writing, (2024-06-18), Valetudo supports more than 35 different Robots.<br/>
 If you're interested in hardware specifics, teardowns and more, check out Dennis Giese's [Vacuum Robot Overview](https://robotinfo.dev/).
 
 Please note that this list is exhaustive. These are the supported robots.<br/>
@@ -18,6 +17,8 @@ Unless noted otherwise, these robots were all tested by me personally to ensure 
 - I have an Idea how the thing works, how rooting works and what to do when things don't work
 
 Being _supported_ means meeting these criteria. Only by fulfilling these conditions can a robot be deemed supported.
+
+If you have questions regarding robots that are **not part of this exhaustive list**, check out the webform at [requests.valetudo.cloud](https://requests.valetudo.cloud).
 
 ## Robots that aren't supported
 
@@ -83,9 +84,11 @@ You can use Ctrl + F to look for your model of robot.<br/>
    9. [D10s Pro](#dreame_d10spro)
    10. [D10s Plus](#dreame_d10splus)
    11. [L10s Pro Ultra Heat](#dreame_l10sproultraheat)
-   12. [L40 Ultra](#dreame_l40ultra)
-   13. [X40 Ultra](#dreame_x40ultra)
-   14. [X40 Master](#dreame_x40master)
+   12. [L20 Ultra](#dreame_l20ultra)
+   13. [X30 Ultra](#dreame_x30ultra)
+   14. [L40 Ultra](#dreame_l40ultra)
+   15. [X40 Ultra](#dreame_x40ultra)
+   16. [X40 Master](#dreame_x40master)
 3. [Roborock](#roborock)
    1. [S5](#roborock_s5)
    2. [S6](#roborock_s6)
@@ -104,7 +107,12 @@ You can use Ctrl + F to look for your model of robot.<br/>
    1. [V6](#viomi_v6)
    2. [SE](#viomi_se)
 6. [Eureka](#eureka)
-   1. [J15 Pro Ultra](#eureka_j15pu)
+   1. [J15 Max Ultra](#eureka_j15mu)
+   2. [J15 Pro Ultra](#eureka_j15pu)
+   3. [J15 Ultra](#eureka_j15u)
+   4. [J12 Ultra](#eureka_j12u)
+   5. [E20 Evo Plus](#eureka_e20evoplus)
+   6. [E20 Plus](#eureka_e20plus)
 7. [Cecotec](#cecotec)
    1. [Conga 3290](#conga_3290)
    2. [Conga 3790](#conga_3790)
@@ -138,10 +146,11 @@ In that case, it only requires a Laptop. All warranty seals stay intact.
 
 If your robot is newer than that, full disassembly will be required.
 
+Depending on your OpenSSH version, it might be necessary to add `-o HostKeyAlgorithms=+ssh-rsa` when trying to ssh into the rooted robot.
+
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -268,7 +277,6 @@ While Valetudo works with their model firmwares, the recommended rooting procedu
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -381,6 +389,8 @@ The Dreame F9 is sold as:
 
 Rooting is pretty easy, only requiring a 3.3v USB UART Adapter, [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) and almost no disassembly.
 All warranty seals stay intact.
+
+If you only see weird characters on the UART, try `500000` instead of `115200` as the baud rate.
 
 #### Details
 
@@ -573,8 +583,10 @@ The Dreame L10s Pro Ultra Heat is sold as:
 - Dreame L10s Pro Ultra Heat
 
 #### Comments
+Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
+All warranty seals stay intact.
 
-If the robot fails to dock after rooting:
+If the robot fails to dock or you cannot select any operating modes after rooting:
 1. Dock it manually. Make sure that it is charging
 2. Head to the dustbuilder
 3. Build a firmware for manual install via SSH
@@ -582,12 +594,83 @@ If the robot fails to dock after rooting:
 5. Install the built firmware
 
 The issue is that rooting flashes a newer firmware than the one installed from the factory; bypassing the normal update process.
-As there seems to have been a breaking change in the communication between MCU and Linux-side-software, this breaks docking.
+As there seems to have been a breaking change in the communication between MCU and Linux-side-software, this breaks that stuff.
 
 Installing a firmware package via SSH uses the normal OTA update process and with that fixes this mismatch.
 
+If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
+`rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
+
+After that, you will have to reconfigure Wi-Fi using Valetudo.
+
+
+If Valetudo doesn't want to auto-detect the robot, and it was made around 08/2025 or later, Dreame might've switched to negative
+deviceIds, which are unexpected for miio. To solve that:
+
+1. Check `/mnt/private/ULI/factory/did.txt`. Is it a negative number? If not, this is not your problem
+2. `mount -o remount,rw /mnt/private`
+3. ! BACKUP ! the original did. `cp /mnt/private/ULI/factory/did.txt /mnt/private/ULI/factory/did_orig.txt && sync`
+4. Edit the file and make the did a positive number. `nano /mnt/private/ULI/factory/did.txt`, and save
+5. `rm /data/config/miio/device.conf`. It will be regenerated on next boot
+6. `reboot`
+7. Ensure that Valetudo has now auto-detected the correct implementation and can talk to the robot via the miio stack
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+**Secure Boot**: `yes`
+
+#### Rooting instructions
+
+- [Fastboot](https://valetudo.cloud/pages/installation/dreame.html#fastboot)
+
+### L20 Ultra <a id="dreame_l20ultra"></a>
+
+<img src="img/robots/dreame/dreame_l20ultra.jpg" width="1300" height="325"/>
+
+The Dreame L20 Ultra is sold as:
+- Dreame L20 Ultra
+- Dreame L20 Ultra Complete
+
+⚠⚠⚠<br/>
+There are two different robots out there that both are called L20 Ultra and look _identical_.<br/>
+However, only **ONE** of those is rootable.<br/><br/>
+Look for a serial starting with R2394. If it is starting with R2253, it is **NOT** rootable.<br/>
+Based on questioning of innocent and confused Kleinanzeigen users, the new R2394 model seem to have entered the market somewhere around early 2024,
+so anything older than that is probably best avoided.<br/>
+⚠⚠⚠
+
+#### Comments
+
 Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
 All warranty seals stay intact.
+
+If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
+`rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
+
+After that, you will have to reconfigure Wi-Fi using Valetudo.
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+**Secure Boot**: `yes`
+
+### X30 Ultra <a id="dreame_x30ultra"></a>
+
+<img src="img/robots/dreame/dreame_x30ultra.jpg" width="1300" height="325"/>
+
+The Dreame X30 Ultra is sold as:
+- Dreame X30 Ultra
+
+#### Comments
+
+Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
+All warranty seals stay intact.
+
+If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
+`rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
+
+After that, you will have to reconfigure Wi-Fi using Valetudo.
 
 #### Details
 
@@ -605,13 +688,30 @@ All warranty seals stay intact.
 The Dreame L40 Ultra is sold as:
 - Dreame L40 Ultra
 
-It is **not sold** as the L40 Ultra **AE** nor as the L40**s Pro Ultra**.<br/>
-Those are completely different robots with confusing names that are **not** supported.
+It is **not sold** as the L40 Ultra **AE** nor as the L40**s Pro Ultra** nor any other name that isn't exactly this one.<br/>
+Those are all completely different robots with confusing names that are **not** supported.
 
 #### Comments
 
 Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
 All warranty seals stay intact.
+
+If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
+`rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
+
+After that, you will have to reconfigure Wi-Fi using Valetudo.
+
+
+If Valetudo doesn't want to auto-detect the robot, and it was made around 08/2025 or later, Dreame might've switched to negative
+deviceIds, which are unexpected for miio. To solve that:
+
+1. Check `/mnt/private/ULI/factory/did.txt`. Is it a negative number? If not, this is not your problem
+2. `mount -o remount,rw /mnt/private`
+3. ! BACKUP ! the original did. `cp /mnt/private/ULI/factory/did.txt /mnt/private/ULI/factory/did_orig.txt && sync`
+4. Edit the file and make the did a positive number. `nano /mnt/private/ULI/factory/did.txt`, and save
+5. `rm /data/config/miio/device.conf`. It will be regenerated on next boot
+6. `reboot`
+7. Ensure that Valetudo has now auto-detected the correct implementation and can talk to the robot via the miio stack
 
 #### Details
 
@@ -635,15 +735,22 @@ The Dreame X40 Ultra is sold as:
 Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
 All warranty seals stay intact.
 
-Please keep in mind that the goal of Valetudo is to have **a** cloud-free vacuum robot.<br/>
-It is **not** to have the Dreame X40 Ultra in all its glory but just with the cloud removed.<br/>
-Feature-parity is a non-goal for Valetudo, and if you're wondering which features "you might lose", Valetudo is not for you.
-
-
 If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
 `rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
 
 After that, you will have to reconfigure Wi-Fi using Valetudo.
+
+
+If Valetudo doesn't want to auto-detect the robot, and it was made around 08/2025 or later, Dreame might've switched to negative
+deviceIds, which are unexpected for miio. To solve that:
+
+1. Check `/mnt/private/ULI/factory/did.txt`. Is it a negative number? If not, this is not your problem
+2. `mount -o remount,rw /mnt/private`
+3. ! BACKUP ! the original did. `cp /mnt/private/ULI/factory/did.txt /mnt/private/ULI/factory/did_orig.txt && sync`
+4. Edit the file and make the did a positive number. `nano /mnt/private/ULI/factory/did.txt`, and save
+5. `rm /data/config/miio/device.conf`. It will be regenerated on next boot
+6. `reboot`
+7. Ensure that Valetudo has now auto-detected the correct implementation and can talk to the robot via the miio stack
 
 #### Details
 
@@ -666,9 +773,22 @@ The Dreame X40 Master is sold as:
 Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
 All warranty seals stay intact.
 
-Please keep in mind that the goal of Valetudo is to have **a** cloud-free vacuum robot.<br/>
-It is **not** to have the Dreame X40 Master in all its glory but just with the cloud removed.<br/>
-Feature-parity is a non-goal for Valetudo, and if you're wondering which features "you might lose", Valetudo is not for you.
+If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
+`rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
+
+After that, you will have to reconfigure Wi-Fi using Valetudo.
+
+
+If Valetudo doesn't want to auto-detect the robot, and it was made around 08/2025 or later, Dreame might've switched to negative
+deviceIds, which are unexpected for miio. To solve that:
+
+1. Check `/mnt/private/ULI/factory/did.txt`. Is it a negative number? If not, this is not your problem
+2. `mount -o remount,rw /mnt/private`
+3. ! BACKUP ! the original did. `cp /mnt/private/ULI/factory/did.txt /mnt/private/ULI/factory/did_orig.txt && sync`
+4. Edit the file and make the did a positive number. `nano /mnt/private/ULI/factory/did.txt`, and save
+5. `rm /data/config/miio/device.conf`. It will be regenerated on next boot
+6. `reboot`
+7. Ensure that Valetudo has now auto-detected the correct implementation and can talk to the robot via the miio stack
 
 #### Details
 
@@ -717,6 +837,12 @@ The Mova S20 Ultra is sold as:
 
 Rooting is relatively easy. Usage of [the Dreame Breakout PCB](https://github.com/Hypfer/valetudo-dreameadapter) is highly recommended.
 All warranty seals stay intact.
+
+If the rooted robot does not want to stay connected to your Wi-Fi network, try this one-liner:
+`rm -f /data/config/miio/wifi.conf /data/config/wifi/wpa_supplicant.conf /var/run/wpa_supplicant.conf; dreame_release.na -c 9 -i ap_info -m " "; reboot`
+
+After that, you will have to reconfigure Wi-Fi using Valetudo.
+
 
 #### Details
 
@@ -768,10 +894,11 @@ Rooting is pretty easy, only requiring a Laptop. All warranty seals stay intact.
 
 Note that segment support is only available starting with firmware version 2008 so make sure you're up-to-date.
 
+Depending on your OpenSSH version, it might be necessary to add `-o HostKeyAlgorithms=+ssh-rsa` when trying to ssh into the rooted robot.
+
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -795,7 +922,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -820,7 +946,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7-lowmem`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -844,7 +969,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -868,7 +992,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7-lowmem`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -889,7 +1012,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7-lowmem`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -913,7 +1035,6 @@ The VibraRise mop module makes disassembly of this robot difficult and easy to m
 #### Details
 
 **Valetudo Binary**: `armv7-lowmem`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -933,7 +1054,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7-lowmem`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -968,7 +1088,6 @@ Rooting requires full disassembly.
 #### Details
 
 **Valetudo Binary**: `armv7-lowmem`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -997,7 +1116,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -1019,7 +1137,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -1029,39 +1146,128 @@ It might be required to remove the battery but that can be done without touching
 ## Eureka<a id="eureka"></a>
 
 Eureka is a brand of Midea.
-<div class="alert alert-warning" role="alert">
-As of now (2025-08-29), support for these is experimental, beta, barely tested and full of dragons.
-</div>
+
+### Eureka J15 Max Ultra<a id="eureka_j15mu"></a>
+
+<img src="./img/robots/eureka/eureka_j15mu.jpg" width="1300" height="325"/>
+
+#### Comments
+
+Rooting is pretty easy, only requiring a Linux Laptop and a micro USB cable.
+All warranty seals stay intact.
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+
+#### Rooting instructions
+
+- [ADB](https://valetudo.cloud/pages/installation/midea.html#adb)
 
 ### Eureka J15 Pro Ultra<a id="eureka_j15pu"></a>
 
 <img src="./img/robots/eureka/eureka_j15pu.jpg" width="1300" height="325"/>
 
-The Eureka J15 Pro Ultra might be similar to the J15 Ultra, but frankly I currently (2025-08-29) have no idea.
-
 #### Comments
 
-**WARNING**<br/>
-
-At the time of writing (2025-08-29), this robot is completely new on this list.<br/>
-I've been playing around with it for a few months, but the sample size is 1 and I have not used it extensively.
-
-Because of that, there is also no rooting guide yet, as I still lack both data and experience to come up with one that matches the quality of the other guides.
-
-**You should very likely not be buying this if you just want a robot that works.**<br/>
-**The experience will be worse for equal or more money than other supported robots.**
-
-For now, there is a Telegram Group for it, so if you have one or are interested, you can join that and we'll see if/how you can get it rooted (with no commitment to timeframes, suitability, success, usability, reliability, functionality, etc.).<br/>
-Anything beyond that I shall figure out as I go (or not, if I should lose interest)
-
-
-<a href="https://t.me/+F00lFE1NVUc2NTAy" data-si="34097f03527c7c0375540b07132a652161373c7c0c2f29446177627c62615d705318331a1b1c0b7a">Valetudo on Midea Telegram Group</a>
+Rooting is pretty easy, only requiring a Linux Laptop and a micro USB cable.
+All warranty seals stay intact.
 
 #### Details
 
 **Valetudo Binary**: `aarch64`
-**Secure Boot**: `no`
 
+#### Rooting instructions
+
+- [ADB](https://valetudo.cloud/pages/installation/midea.html#adb)
+
+### Eureka J15 Ultra<a id="eureka_j15u"></a>
+
+<img src="./img/robots/eureka/eureka_j15u.jpg" width="1300" height="325"/>
+
+#### Comments
+
+Rooting is pretty easy, only requiring a Linux Laptop and a micro USB cable.
+All warranty seals stay intact.
+
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+
+#### Rooting instructions
+
+- [ADB](https://valetudo.cloud/pages/installation/midea.html#adb)
+
+### Eureka J12 Ultra<a id="eureka_j12u"></a>
+
+<img src="./img/robots/eureka/eureka_j12u.jpg" width="1300" height="325"/>
+
+#### Comments
+
+Rooting is pretty easy, only requiring a Linux Laptop and a micro USB cable.
+All warranty seals stay intact.
+
+Due to the rather slow SoC, Valetudo startup after boot may take a few minutes.
+
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+
+#### Rooting instructions
+
+- [ADB](https://valetudo.cloud/pages/installation/midea.html#adb)
+
+### Eureka E20 Evo Plus<a id="eureka_e20evoplus"></a>
+
+<img src="img/robots/eureka/eureka_e20evoplus.jpg" width="1300" height="325"/>
+
+#### Comments
+
+⚠⚠⚠<br/>
+These robots seem to come with a Wi-Fi module on the compute module that has a very broken driver.<br/>
+mDNS does not work reliably on this robot, meaning that the Valetudo Companion app does not see it.<br/>
+⚠⚠⚠
+
+Rooting is pretty easy, only requiring a Linux Laptop and a micro USB cable.
+All warranty seals stay intact.
+
+Due to the rather slow SoC, Valetudo startup after boot may take a few minutes.
+
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+
+#### Rooting instructions
+
+- [ADB](https://valetudo.cloud/pages/installation/midea.html#adb)
+
+### Eureka E20 Plus<a id="eureka_e20plus"></a>
+
+<img src="./img/robots/eureka/eureka_e20plus.jpg" width="1300" height="325"/>
+
+#### Comments
+
+⚠⚠⚠<br/>
+These robots seem to come with a Wi-Fi module on the compute module that has a very broken driver.<br/>
+mDNS does not work reliably on this robot, meaning that the Valetudo Companion app does not see it.<br/>
+⚠⚠⚠
+
+Rooting is pretty easy, only requiring a Linux Laptop and a micro USB cable.
+All warranty seals stay intact.
+
+Due to the rather slow SoC, Valetudo startup after boot may take a few minutes.
+
+
+#### Details
+
+**Valetudo Binary**: `aarch64`
+
+#### Rooting instructions
+
+- [ADB](https://valetudo.cloud/pages/installation/midea.html#adb)
 
 ## Cecotec<a id="cecotec"></a>
 
@@ -1087,7 +1293,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -1112,7 +1317,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -1143,7 +1347,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -1174,7 +1377,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 
@@ -1204,7 +1406,6 @@ It might be required to remove the battery but that can be done without touching
 #### Details
 
 **Valetudo Binary**: `armv7`
-**Secure Boot**: `no`
 
 #### Rooting instructions
 

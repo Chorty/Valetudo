@@ -2,6 +2,9 @@ import axios from "axios";
 import { RawMapData } from "./RawMapData";
 import {PresetSelectionState, PresetValue, RobotAttribute} from "./RawRobotState";
 import {
+    AutoEmptyDockAutoEmptyDuration,
+    AutoEmptyDockAutoEmptyDurationControlProperties,
+    AutoEmptyDockAutoEmptyDurationPayload,
     AutoEmptyDockAutoEmptyInterval,
     AutoEmptyDockAutoEmptyIntervalPayload,
     AutoEmptyDockAutoEmptyIntervalProperties,
@@ -9,6 +12,9 @@ import {
     CarpetSensorMode,
     CarpetSensorModeControlProperties,
     CarpetSensorModePayload,
+    CleanRoute,
+    CleanRouteControlProperties,
+    CleanRoutePayload,
     CombinedVirtualRestrictionsProperties,
     CombinedVirtualRestrictionsUpdateRequestParameters,
     ConsumableId,
@@ -24,7 +30,12 @@ import {
     MapSegmentationProperties,
     MapSegmentEditJoinRequestParameters,
     MapSegmentEditSplitRequestParameters,
+    MapSegmentMaterialControlProperties,
+    MapSegmentMaterialControlRequestParameters,
     MapSegmentRenameRequestParameters,
+    MopDockMopDryingDuration,
+    MopDockMopDryingTimeControlProperties,
+    MopDockMopDryingTimePayload,
     MopDockMopWashTemperature,
     MopDockMopWashTemperaturePayload,
     MopDockMopWashTemperatureProperties,
@@ -358,6 +369,30 @@ export const sendRenameSegmentCommand = async (
             name: parameters.name
         }
     );
+};
+
+export const sendSetSegmentMaterialCommand = async (parameters: MapSegmentMaterialControlRequestParameters): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.MapSegmentMaterialControl}`, {
+            action: "set_material",
+            segment_id: parameters.segment_id,
+            material: parameters.material
+        })
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not set segment material");
+            }
+        });
+};
+
+export const fetchMapSegmentMaterialControlProperties = async (): Promise<MapSegmentMaterialControlProperties> => {
+    return valetudoAPI
+        .get<MapSegmentMaterialControlProperties>(
+            `/robot/capabilities/${Capability.MapSegmentMaterialControl}/properties`
+        )
+        .then(({data}) => {
+            return data;
+        });
 };
 
 export const sendLocateCommand = async (): Promise<void> => {
@@ -1223,6 +1258,114 @@ export const fetchMopDockMopWashTemperatureProperties = async (): Promise<MopDoc
     return valetudoAPI
         .get<MopDockMopWashTemperatureProperties>(
             `/robot/capabilities/${Capability.MopDockMopWashTemperatureControl}/properties`
+        )
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const fetchMopDockMopAutoDryingControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.MopDockMopAutoDryingControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendMopDockMopAutoDryingControlState = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.MopDockMopAutoDryingControl, enable);
+};
+
+export const fetchFloorMaterialDirectionAwareNavigationControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.FloorMaterialDirectionAwareNavigationControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendFloorMaterialDirectionAwareNavigationControlState = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.FloorMaterialDirectionAwareNavigationControl, enable);
+};
+
+export const sendCleanRoute = async (payload: CleanRoutePayload): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.CleanRouteControl}`, payload)
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not send clean route");
+            }
+        });
+};
+
+export const fetchCleanRoute = async (): Promise<CleanRoute> => {
+    return valetudoAPI
+        .get<CleanRoutePayload>(`/robot/capabilities/${Capability.CleanRouteControl}`)
+        .then(({data}) => {
+            return data.route;
+        });
+};
+
+export const fetchCleanRouteControlProperties = async (): Promise<CleanRouteControlProperties> => {
+    return valetudoAPI
+        .get<CleanRouteControlProperties>(
+            `/robot/capabilities/${Capability.CleanRouteControl}/properties`
+        )
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendMopDockMopDryingTime = async (payload: MopDockMopDryingTimePayload): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.MopDockMopDryingTimeControl}`, payload)
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not send mop dock mop drying time");
+            }
+        });
+};
+
+export const fetchMopDockMopDryingTime = async (): Promise<MopDockMopDryingDuration> => {
+    return valetudoAPI
+        .get<MopDockMopDryingTimePayload>(`/robot/capabilities/${Capability.MopDockMopDryingTimeControl}`)
+        .then(({data}) => {
+            return data.duration;
+        });
+};
+
+export const fetchMopDockMopDryingTimeControlProperties = async (): Promise<MopDockMopDryingTimeControlProperties> => {
+    return valetudoAPI
+        .get<MopDockMopDryingTimeControlProperties>(
+            `/robot/capabilities/${Capability.MopDockMopDryingTimeControl}/properties`
+        )
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendAutoEmptyDockAutoEmptyDuration = async (payload: AutoEmptyDockAutoEmptyDurationPayload): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.AutoEmptyDockAutoEmptyDurationControl}`, payload)
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not send auto empty dock auto empty duration");
+            }
+        });
+};
+
+export const fetchAutoEmptyDockAutoEmptyDuration = async (): Promise<AutoEmptyDockAutoEmptyDuration> => {
+    return valetudoAPI
+        .get<AutoEmptyDockAutoEmptyDurationPayload>(`/robot/capabilities/${Capability.AutoEmptyDockAutoEmptyDurationControl}`)
+        .then(({data}) => {
+            return data.duration;
+        });
+};
+
+export const fetchAutoEmptyDockAutoEmptyDurationControlProperties = async (): Promise<AutoEmptyDockAutoEmptyDurationControlProperties> => {
+    return valetudoAPI
+        .get<AutoEmptyDockAutoEmptyDurationControlProperties>(
+            `/robot/capabilities/${Capability.AutoEmptyDockAutoEmptyDurationControl}/properties`
         )
         .then(({data}) => {
             return data;

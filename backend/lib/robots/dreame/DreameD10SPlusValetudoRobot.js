@@ -135,7 +135,8 @@ class DreameD10SPlusValetudoRobot extends DreameGen2LidarValetudoRobot {
             capabilities.DreameAICameraObstacleAvoidanceControlCapability,
             capabilities.DreamePetObstacleAvoidanceControlCapability,
             capabilities.DreameCollisionAvoidantNavigationControlCapability,
-            capabilities.DreameAutoEmptyDockAutoEmptyIntervalControlCapabilityV1
+            capabilities.DreameAutoEmptyDockAutoEmptyIntervalControlCapabilityV1,
+            capabilities.DreameCleanRouteControlCapabilityV1,
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
@@ -144,13 +145,7 @@ class DreameD10SPlusValetudoRobot extends DreameGen2LidarValetudoRobot {
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.TIGHT_MOP_PATTERN),
             ]
-        }));
-
-        this.state.upsertFirstMatchingAttribute(new entities.state.attributes.AttachmentStateAttribute({
-            type: entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
-            attached: false
         }));
 
         this.state.upsertFirstMatchingAttribute(new entities.state.attributes.DockStatusStateAttribute({

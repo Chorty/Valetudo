@@ -7,14 +7,15 @@ const dtos = require("../../msmart/dtos");
 const DummyCloudCertManager = require("../../utils/DummyCloudCertManager");
 const entities = require("../../entities");
 const Logger = require("../../Logger");
+const MideaMapHacksProvider = require("./MideaMapHacksProvider");
 const MideaMapParser = require("./MideaMapParser");
-const MSmartConst = require("../../msmart/MSmartConst");
 const MSmartDummycloud = require("../../msmart/MSmartDummycloud");
-const MSmartPacket = require("../../msmart/MSmartPacket");
 const ValetudoRobot = require("../../core/ValetudoRobot");
 const stateAttrs = entities.state.attributes;
+const LinuxTools = require("../../utils/LinuxTools");
+const NotImplementedError = require("../../core/NotImplementedError");
+const Tools = require("../../utils/Tools");
 const ValetudoRobotError = require("../../entities/core/ValetudoRobotError");
-const ValetudoSelectionPreset = require("../../entities/core/ValetudoSelectionPreset");
 
 const {DUMMY_CLIENT_CERT, DUMMY_CLIENT_KEY} = require("./MideaConst");
 
@@ -26,21 +27,36 @@ const BIND_IP = "127.0.13.37";
  * @abstract
  */
 class MideaValetudoRobot extends ValetudoRobot {
+    /**
+     *
+     * @param {object} options
+     * @param {import("../../Configuration")} options.config
+     * @param {import("../../ValetudoEventStore")} options.valetudoEventStore
+     * @param {object} [options.waterGrades]
+     * @param {object} [options.fanSpeeds]
+     * @param {object} [options.statusMap]
+     */
     constructor(options) {
         super(options);
+        this.waterGrades = options.waterGrades ?? MideaValetudoRobot.WATER_GRADES;
+        this.fanSpeeds = options.fanSpeeds ?? MideaValetudoRobot.FAN_SPEEDS;
+        this.statusMap = options.statusMap ?? MideaValetudoRobot.STATUS_MAP;
 
-        // FIXME: this breaks the build_docs script. Find a better solution
-        if (!fs.existsSync(CA_KEY_PATH) || !fs.existsSync(CA_CERT_PATH)) {
-            throw new Error("DustCA not found. Unable to mock the cloud.");
+        if (this.config.get("embedded") === true) { // The only scenario in which this isn't embedded is when autogenerating the docs
+            if (!fs.existsSync(CA_KEY_PATH) || !fs.existsSync(CA_CERT_PATH)) {
+                throw new Error("DustCA not found. Unable to mock the cloud.");
+            }
+
+            const caKey = forge.pki.privateKeyFromPem(fs.readFileSync(CA_KEY_PATH, "utf8"));
+            const caCert = forge.pki.certificateFromPem(fs.readFileSync(CA_CERT_PATH, "utf8"));
+
+            this.dummyCloudCertManager = new DummyCloudCertManager({caKey: caKey, caCert: caCert});
         }
 
-        const caKey = forge.pki.privateKeyFromPem(fs.readFileSync(CA_KEY_PATH, "utf8"));
-        const caCert = forge.pki.certificateFromPem(fs.readFileSync(CA_CERT_PATH, "utf8"));
-
-        this.dummyCloudCertManager = new DummyCloudCertManager({ caKey: caKey, caCert: caCert });
-
-        this.mapParser = new MideaMapParser();
+        this.mapHacksProvider = new MideaMapHacksProvider({robot: this});
+        this.mapParser = new MideaMapParser({mapHacksProvider: this.mapHacksProvider});
         this.mapUpdateDebounceTimeout = null;
+        this.activeMapUpdateCount = 0;
 
         this.dummycloud = new MSmartDummycloud({
             dummyCloudCertManager: this.dummyCloudCertManager,
@@ -85,7 +101,7 @@ class MideaValetudoRobot extends ValetudoRobot {
         };
 
         if (this.config.get("embedded") === true) {
-            // On the J15, WiFi scanning takes multiple minutes. Therefore, the capability was omitted here
+            // On the J15 Pro Ultra, WiFi scanning takes multiple minutes. Therefore, the capability was omitted here
 
             this.registerCapability(new capabilities.MideaWifiConfigurationCapability({
                 robot: this,
@@ -93,45 +109,9 @@ class MideaValetudoRobot extends ValetudoRobot {
             }));
         }
 
-        this.registerCapability(new capabilities.MideaFanSpeedControlCapability({
-            robot: this,
-            presets: Object.keys(MideaValetudoRobot.FAN_SPEEDS).map(k => {
-                return new ValetudoSelectionPreset({name: k, value: MideaValetudoRobot.FAN_SPEEDS[k]});
-            })
-        }));
-        this.registerCapability(new capabilities.MideaOperationModeControlCapability({
-            robot: this,
-            presets: Object.keys(MideaValetudoRobot.OPERATION_MODES).map(k => {
-                return new ValetudoSelectionPreset({name: k, value: MideaValetudoRobot.OPERATION_MODES[k]});
-            })
-        }));
-        this.registerCapability(new capabilities.MideaWaterUsageControlCapability({
-            robot: this,
-            presets: Object.keys(MideaValetudoRobot.HIGH_RESOLUTION_WATER_GRADES).map(k => {
-                return new ValetudoSelectionPreset({name: k, value: MideaValetudoRobot.HIGH_RESOLUTION_WATER_GRADES[k]});
-            })
-        }));
-
         [
             capabilities.MideaCurrentStatisticsCapability,
-            capabilities.MideaLocateCapability,
-            capabilities.MideaBasicControlCapability,
-            capabilities.MideaDoNotDisturbCapability,
-            capabilities.MideaSpeakerVolumeControlCapability,
             capabilities.MideaSpeakerTestCapability,
-            capabilities.MideaMapResetCapability,
-            capabilities.MideaMappingPassCapability,
-            capabilities.MideaMapSegmentEditCapability,
-            capabilities.MideaMapSegmentationCapability,
-            capabilities.MideaZoneCleaningCapability,
-            capabilities.MideaCombinedVirtualRestrictionsCapability,
-            capabilities.MideaKeyLockCapability,
-            capabilities.MideaCollisionAvoidantNavigationControlCapability,
-            capabilities.MideaAutoEmptyDockManualTriggerCapability,
-            capabilities.MideaMopDockCleanManualTriggerCapability,
-            capabilities.MideaMopDockDryManualTriggerCapability,
-            capabilities.MideaAutoEmptyDockAutoEmptyIntervalControlCapability,
-            capabilities.MideaCarpetModeControlCapability,
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
@@ -140,10 +120,7 @@ class MideaValetudoRobot extends ValetudoRobot {
             value: entities.state.attributes.DockStatusStateAttribute.VALUE.IDLE
         }));
 
-        this.state.upsertFirstMatchingAttribute(new entities.state.attributes.AttachmentStateAttribute({
-            type: entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
-            attached: false
-        }));
+
     }
 
     async shutdown() {
@@ -163,6 +140,15 @@ class MideaValetudoRobot extends ValetudoRobot {
         super.startup();
 
         if (this.config.get("embedded") === true) {
+            // The J12 starts up with a time in 1970, which is too old for our root CA
+            const buildTimestamp = Tools.GET_BUILD_TIMESTAMP();
+            if (buildTimestamp > new Date()) {
+                // Assuming that time is linearly moving forward, this gives us a realistic lower bound
+                LinuxTools.SET_TIME(buildTimestamp);
+
+                Logger.info("Successfully set the robot time via the Valetudo build timestamp to", buildTimestamp);
+            }
+
             Logger.info(`Firmware Version: ${this.getFirmwareVersion() ?? "unknown"}`);
         }
     }
@@ -182,7 +168,7 @@ class MideaValetudoRobot extends ValetudoRobot {
 
             return true;
         } else if (data instanceof dtos.MSmartActiveZonesDTO) {
-            this.mapParser.update("evt_active_zones", data).catch(e => {
+            this.handleMapUpdate("evt_active_zones", data).catch(e => {
                 Logger.warn("Error while handling active zones event", e);
             });
 
@@ -235,12 +221,59 @@ class MideaValetudoRobot extends ValetudoRobot {
         if (data.station_error_code !== undefined) {
             statusNeedsUpdate = true;
             this.ephemeralState.station_error_code = data.station_error_code;
+
+
+            const supportedDockComponents = this.getModelDetails().supportedDockComponents;
+
+            if (supportedDockComponents.includes(stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_CLEAN)) {
+                let value = stateAttrs.DockComponentStateAttribute.VALUE.OK;
+
+                if (data.station_error_code === 106) {
+                    value = stateAttrs.DockComponentStateAttribute.VALUE.EMPTY;
+                } else if (data.station_error_code === 105) {
+                    value = stateAttrs.DockComponentStateAttribute.VALUE.MISSING;
+                }
+
+                this.state.upsertFirstMatchingAttribute(new stateAttrs.DockComponentStateAttribute({
+                    type: stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_CLEAN,
+                    value: value
+                }));
+            }
+
+            if (supportedDockComponents.includes(stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_DIRTY)) {
+                this.state.upsertFirstMatchingAttribute(new stateAttrs.DockComponentStateAttribute({
+                    type: stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_DIRTY,
+                    value: data.station_error_code === 152 ?
+                        stateAttrs.DockComponentStateAttribute.VALUE.FULL :
+                        stateAttrs.DockComponentStateAttribute.VALUE.OK,
+                }));
+            }
+
+            if (supportedDockComponents.includes(stateAttrs.DockComponentStateAttribute.TYPE.DUSTBAG)) {
+                let value = stateAttrs.DockComponentStateAttribute.VALUE.OK;
+
+                if (
+                    data.station_error_code === 129 ||
+                    data.station_error_code === 128 ||
+                    data.station_error_code === 12 || // TODO: verify that these are actually station_error_codes. And on which robot
+                    data.station_error_code === 11
+                ) {
+                    value = stateAttrs.DockComponentStateAttribute.VALUE.MISSING;
+                } else if (data.station_error_code === 121 || data.station_error_code === 13) {
+                    value = stateAttrs.DockComponentStateAttribute.VALUE.FULL;
+                }
+
+                this.state.upsertFirstMatchingAttribute(new stateAttrs.DockComponentStateAttribute({
+                    type: stateAttrs.DockComponentStateAttribute.TYPE.DUSTBAG,
+                    value: value
+                }));
+            }
         }
 
 
         if (data.fan_level !== undefined) {
-            let matchingFanSpeed = Object.keys(MideaValetudoRobot.FAN_SPEEDS).find(key => {
-                return MideaValetudoRobot.FAN_SPEEDS[key] === data.fan_level;
+            let matchingFanSpeed = Object.keys(this.fanSpeeds).find(key => {
+                return this.fanSpeeds[key] === data.fan_level;
             });
 
             if (matchingFanSpeed) {
@@ -275,8 +308,8 @@ class MideaValetudoRobot extends ValetudoRobot {
         }
 
         if (data.water_level !== undefined) {
-            let matchingWaterGrade = Object.keys(MideaValetudoRobot.HIGH_RESOLUTION_WATER_GRADES).find(key => {
-                return MideaValetudoRobot.HIGH_RESOLUTION_WATER_GRADES[key] === data.water_level;
+            let matchingWaterGrade = Object.keys(this.waterGrades).find(key => {
+                return this.waterGrades[key] === data.water_level;
             });
 
             if (matchingWaterGrade) {
@@ -315,16 +348,16 @@ class MideaValetudoRobot extends ValetudoRobot {
 
 
         if (statusNeedsUpdate) {
-            if (MideaValetudoRobot.STATUS_MAP[this.ephemeralState.work_status]) {
-                let statusValue = MideaValetudoRobot.STATUS_MAP[this.ephemeralState.work_status]?.value ?? stateAttrs.StatusStateAttribute.VALUE.ERROR;
-                let statusFlag = MideaValetudoRobot.STATUS_MAP[this.ephemeralState.work_status]?.flag ?? stateAttrs.StatusStateAttribute.FLAG.NONE;
+            if (this.statusMap[this.ephemeralState.work_status]) {
+                let statusValue = this.statusMap[this.ephemeralState.work_status]?.value ?? stateAttrs.StatusStateAttribute.VALUE.ERROR;
+                let statusFlag = this.statusMap[this.ephemeralState.work_status]?.flag ?? stateAttrs.StatusStateAttribute.FLAG.NONE;
                 let statusError;
 
                 if (statusValue === stateAttrs.StatusStateAttribute.VALUE.ERROR) {
-                    statusError = MideaValetudoRobot.MAP_ERROR_CODE(this.ephemeralState.error_type, this.ephemeralState.error_desc);
+                    statusError = this.mapErrorCode(this.ephemeralState.error_type, this.ephemeralState.error_desc);
                 } else if (this.ephemeralState.station_error_code > 0) {
                     statusValue = stateAttrs.StatusStateAttribute.VALUE.ERROR;
-                    statusError = MideaValetudoRobot.MAP_DOCK_ERROR_CODE(this.ephemeralState.station_error_code);
+                    statusError = this.mapErrorCode(3, this.ephemeralState.station_error_code);
                 }
 
                 if (
@@ -364,46 +397,57 @@ class MideaValetudoRobot extends ValetudoRobot {
     }
 
     /**
-     * @param {string} command
+     * @param {string|object} command
      * @param {object} [options]
      * @param {number} [options.timeout] - milliseconds
-     * @param {"device"|"ai"} [options.target] - defaults to "device"
+     * @param {"device"|"ai"|"map"} [options.target] - defaults to "device"
+     * @param {boolean} [options.fireAndForget]
      * @returns {Promise<import("../../msmart/MSmartPacket")>}
      */
     async sendCommand(command, options) {
         return this.dummycloud.sendCommand(command, options);
     }
 
+    /**
+     * @returns {Promise<import("../../entities/state/RobotState")>}
+     */
     async pollState() {
-        const packet = new MSmartPacket({
-            messageType: MSmartPacket.MESSAGE_TYPE.ACTION,
-            payload: MSmartPacket.buildPayload(0x01)
-        });
-
-        const response = await this.sendCommand(packet.toHexString());
-        const parsedResponse = BEightParser.PARSE(response);
-
-        if (parsedResponse instanceof dtos.MSmartStatusDTO) {
-            this.parseAndUpdateState(parsedResponse);
-        }
-
-        return this.state;
+        throw new NotImplementedError();
     }
 
     /**
      *
      * @param {string} type - TODO: ENUM
-     * @param {string} data
+     * @param {any} data
      * @return {Promise<void>}
      */
     async handleMapUpdate(type, data) {
-        await this.mapParser.update(type, data);
+        if (this.mapUpdateDebounceTimeout) {
+            clearTimeout(this.mapUpdateDebounceTimeout);
+            this.mapUpdateDebounceTimeout = null;
+        }
+
+        // Because the parser yields while e.g. inflating, a second partial map update might arrive here
+        // Without this counter, if the processing of the first update is slow enough, the debounce timeout
+        // might fire without everything being fully processed, leading to some elements of the map flickering in the UI
+        this.activeMapUpdateCount++;
+
+        try {
+            await this.mapParser.update(type, data);
+        } finally {
+            this.activeMapUpdateCount--;
+        }
 
         if (this.mapUpdateDebounceTimeout) {
             clearTimeout(this.mapUpdateDebounceTimeout);
         }
 
         this.mapUpdateDebounceTimeout = setTimeout(() => {
+            if (this.activeMapUpdateCount > 0) {
+                // Don't publish yet if there are still parts of the map being parsed
+                return;
+            }
+
             const newMap = this.mapParser.getCurrentMap();
             if (newMap.metaData.totalLayerArea > 0) {
                 this.state.map = newMap;
@@ -412,40 +456,11 @@ class MideaValetudoRobot extends ValetudoRobot {
             }
 
             this.mapUpdateDebounceTimeout = null;
-        }, 350); // TODO: what to pick here?
+        }, 200); // Wait another 200ms for any further map updates to arrive after the last one was processed
     }
 
     async executeMapPoll() {
-        const mapPollPacket = new MSmartPacket({
-            messageType: MSmartPacket.MESSAGE_TYPE.ACTION,
-            payload: MSmartPacket.buildPayload(MSmartConst.ACTION.POLL_MAP)
-        });
-        const dockPositionPollPacket = new MSmartPacket({
-            messageType: MSmartPacket.MESSAGE_TYPE.ACTION,
-            payload: MSmartPacket.buildPayload(MSmartConst.ACTION.GET_DOCK_POSITION)
-        });
-        const activeZonesPollPacket = new MSmartPacket({
-            messageType: MSmartPacket.MESSAGE_TYPE.ACTION,
-            payload: MSmartPacket.buildPayload(MSmartConst.ACTION.GET_ACTIVE_ZONES)
-        });
-
-        await this.sendCommand(mapPollPacket.toHexString());
-
-        const dockPositionResponse = await this.sendCommand(dockPositionPollPacket.toHexString());
-
-        if (dockPositionResponse.payload[3] === 1) {
-            await this.mapParser.update("dockPosition", { // TODO: Move to BEightParser
-                x: dockPositionResponse.payload.readUInt16LE(4),
-                y: dockPositionResponse.payload.readUInt16LE(6),
-                angle: dockPositionResponse.payload.readUInt16LE(8)
-            });
-        }
-
-        const activeZonesResponse = await this.sendCommand(activeZonesPollPacket.toHexString());
-
-        if (activeZonesResponse instanceof dtos.MSmartActiveZonesDTO) {
-            await this.mapParser.update("evt_active_zones", activeZonesResponse);
-        }
+        throw new NotImplementedError();
     }
 
     clearValetudoMap() {
@@ -454,21 +469,647 @@ class MideaValetudoRobot extends ValetudoRobot {
         super.clearValetudoMap();
     }
 
+    initModelSpecificWebserverRoutes(app) {
+        super.initModelSpecificWebserverRoutes(app);
+
+        // Older robots such as the J12 do the OTA check against http, but our dummycloud is just https.
+        // Thus, this is duplicated here
+
+        app.post("/v1/ota/version/check", (req, res) => {
+            const requestedModule = req.body.isModule || "0";
+            Logger.debug(`Handling OTA check via HTTP for module type: ${requestedModule}`);
+
+            const responsePayload = {
+                "errorCode": "0",
+                "msg": "success",
+                "reason": "success",
+                "data": {
+                    "isModule": requestedModule,
+                    "hasNew": "0",
+                    "md5": "",
+                    "productName": "",
+                    "sn8": "",
+                    "url": "",
+                    "version": "",
+                    "forceUpdate": "",
+                    "fwSign": "",
+                    "sh256": "",
+                    "rsaSign": ""
+                }
+            };
+
+            res.status(200).json(responsePayload);
+        });
+
+        app.post("/v1/ota/status/update", (req, res) => {
+            Logger.debug("Handling OTA status update request via HTTP");
+            if (req.body) {
+                Logger.debug("OTA Status Update Body:", req.body);
+            }
+
+            res.status(200).json({ msg: "OK", code: "0" });
+        });
+    }
+
+    /**
+     *
+     * @param {number} errorType - Error category (1=solvable, 2=restart, 3=warning/alert)
+     * @param {number} errorDesc - Specific error code within the category
+     *
+     * @returns {ValetudoRobotError}
+     */
+    mapErrorCode(errorType, errorDesc) { // TODO: review these by hand
+        const vendorErrorCode = `${errorType}-${errorDesc}`;
+        const parameters = {
+            severity: {
+                kind: ValetudoRobotError.SEVERITY_KIND.UNKNOWN,
+                level: ValetudoRobotError.SEVERITY_LEVEL.UNKNOWN,
+            },
+            subsystem: ValetudoRobotError.SUBSYSTEM.UNKNOWN,
+            message: `Unknown error ${vendorErrorCode}`,
+            vendorErrorCode: vendorErrorCode
+        };
+
+        if (errorType === 1) { // Solvable errors
+            switch (errorDesc) {
+                case 1: // DUST_BOX_MISSING
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Dustbin missing";
+                    break;
+                case 2: // WHEELS_DANGLING
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
+                    parameters.message = "Wheel lost floor contact";
+                    break;
+                case 3: // WHEELS_OVERLOAD
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
+                    parameters.message = "Wheel jammed";
+                    break;
+                case 4: // SIDE_BRUSH_FAULT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
+                    parameters.message = "Side brush jammed";
+                    break;
+                case 5: // ROLLING_BRUSH_FAULT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
+                    parameters.message = "Main brush jammed";
+                    break;
+                case 6: // DUST_MOTOR_OVERLOAD
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.CATASTROPHIC;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
+                    parameters.message = "Fan speed abnormal";
+                    break;
+                case 7: // FRONT_PANEL_FAULT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "Stuck front bumper";
+                    break;
+                case 8: // RADAR_MASK
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS jammed";
+                    break;
+                case 9: // FRONT_SENSOR_FAULT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "Cliff sensor dirty or robot on the verge of falling";
+                    break;
+                case 10: // BATTERY_VERY_LOW_HIT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Low battery";
+                    break;
+                case 11: // LEAN_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "Tilted robot";
+                    break;
+                case 12: // LASER_SENSOR_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS jammed";
+                    break;
+                case 13: // EDGE_SENSOR_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "Sensor dirty";
+                    break;
+                case 14: // FIND_BARRIER
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot trapped by virtual restrictions";
+                    break;
+                case 15: // MAGNETIC_FIELD_DISTURB
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "Magnetic interference";
+                    break;
+                case 16: // LASER_SENSOR_BLOCK_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS bumper jammed";
+                    break;
+                case 17: // MOP_LOSE_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Lost mop pad";
+                    break;
+                case 18: // MOP_SLIP_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot stuck or trapped";
+                    break;
+                case 19: // RECHARGE_FAIL
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Charging station without power";
+                    break;
+                case 20: // VIBRATION_DRAG_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot stuck or trapped";
+                    break;
+                case 21: // STERILIZATION_MODULE_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Sterilization module fault";
+                    break;
+                case 22: // ROBOT_WATER_BOX_UNINSTALL_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Water tank missing";
+                    break;
+                case 23: // WIPE_CHIP_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Wipe chip error";
+                    break;
+                case 24: // RADAR_HIGH_TEMPERATURE
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS temperature out of operating range";
+                    break;
+                case 32: // HAIR_CUT_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
+                    parameters.message = "Hair cutter jammed";
+                    break;
+                case 43: // RECHARGE_FAIL (specific variant)
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Charging error";
+                    break;
+                case 64: // MOP_DROP_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Lost mop pad";
+                    break;
+                case 65: // ROATE_TIME_OUT_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Rotation timeout";
+                    break;
+                case 66: // CANNOT_FIND_STATION
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot navigate to the dock";
+                    break;
+                case 67: // RECHARGE_FAIL (another variant)
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Charging error";
+                    break;
+                case 68: // RECHARGE_FAIL_NOSINGAL
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Charging station without power";
+                    break;
+                case 69: // RADAR_HIGH_TEMPERATURE_RESOLVE_FAILED
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS temperature control failed";
+                    break;
+                case 80: // CANNOT_ARRIVE_POINT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot reach target";
+                    break;
+                case 81: // PHS_FIND_BARRIER
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot trapped by virtual restrictions";
+                    break;
+                case 82: // FIND_BARRIER
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot trapped by virtual restrictions";
+                    break;
+                case 83: // WHEELS_DANGLING
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
+                    parameters.message = "Wheel lost floor contact";
+                    break;
+                case 84: // ROBOT_OUT_STATION_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot failed to exit dock";
+                    break;
+                case 85: // ROBOT_BEING_TRAPPED
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot stuck or trapped";
+                    break;
+                case 87: // ROBOT_TIMEOUT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
+                    parameters.message = "Robot operation timeout";
+                    break;
+                case 88: // CARPET_START_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot start on carpet";
+                    break;
+                case 89: // VM_WALL_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Stuck inside restricted area";
+                    break;
+                case 90: // FORBIDDEN_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Stuck inside restricted area";
+                    break;
+                case 91: // MOP_FORBIDDEN_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Stuck inside restricted area";
+                    break;
+                case 92: // CHARGE_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot start while charging";
+                    break;
+                case 93: // ROBOT_BEING_TRAPPED
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot stuck or trapped";
+                    break;
+                case 94: // ROBOT_SLAM_LAYER_EMPTY
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Navigation map error";
+                    break;
+                case 96: // DEPART_FROM_NARROW_AREA_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot stuck in narrow area";
+                    break;
+                case 128: // ROBOT_CREATE_MAP_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Map creation error";
+                    break;
+                case 160: // RADAR_HIGH_TEMPERATURE_RESOLVE_FAILED
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS temperature control failed";
+                    break;
+                case 162: // ROBOT_CREATE_MAP_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Map creation error";
+                    break;
+                case 164: // SLAM_LOCATION_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Localization error";
+                    break;
+            }
+        } else if (errorType === 2) { // Restart errors
+            switch (errorDesc) {
+                case 1: // LASER_COM_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.CATASTROPHIC;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "LDS communication error";
+                    break;
+                case 2: // MAINFRAME_COM_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.CATASTROPHIC;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
+                    parameters.message = "Mainframe communication error";
+                    break;
+            }
+        } else if (errorType === 3) { // Alert errors
+            switch (errorDesc) {
+                case 1: // LOCATION_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Localization error";
+                    break;
+                case 2: // BATTERY_LOW_HIT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Low battery";
+                    break;
+                case 3: // DUST_BOX_FULL
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Dustbin full";
+                    break;
+                case 4: // WATER_BOX_LACK
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Water tank empty";
+                    break;
+                case 5: // RECHARGE_FAIL
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
+                    parameters.message = "Charging error";
+                    break;
+                case 6: // SENSOR_DIRTY_MSG
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
+                    parameters.message = "Sensor dirty";
+                    break;
+                case 8: // MOP_LIFT_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Mop lift error";
+                    break;
+                case 9: // DUST_INTERUPT_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock dust collection interrupted";
+                    break;
+                case 10: // DUST_BOX_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock dust collection error";
+                    break;
+                case 11: // DUST_OPENED_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock cover open or missing dust bag";
+                    break;
+                case 12: // DUST_UNINSTALL_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock cover open or missing dust bag";
+                    break;
+                case 13: // DUST_FULL_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock dust bag full or dust duct clogged";
+                    break;
+                case 32: // CANNOT_ARRIVE_POINT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot reach target";
+                    break;
+                case 33: // LOOK_DOWN_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot start in current position";
+                    break;
+                case 34: // ON_CARPET_START_MODE
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Cannot start on carpet";
+                    break;
+                case 35: // VM_WALL_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Stuck inside restricted area";
+                    break;
+                case 37: // WATER_FORBIDDEN_AREA_START
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Stuck inside restricted area";
+                    break;
+                case 100: // STATION_DISCONNECT
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock communication error";
+                    break;
+                case 101: // ROBOT_NOT_IN_STATION
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+                    parameters.message = "Robot not in dock";
+                    break;
+                case 105: // WASH_WATER_BOX_UNINSTALL_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Mop Dock Clean Water Tank not installed";
+                    break;
+                case 106: // CLEAN_WATER_TANK_WITHOUT_WATER_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Mop Dock Clean Water Tank empty or not installed";
+                    break;
+                case 107: // STATION_CLOSE_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock close error";
+                    break;
+                case 109: // STATION_FAN_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock fan error";
+                    break;
+                case 111: // STATION_RAG_BOX_FULL_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Mop Dock Tray not installed";
+                    break;
+                case 112: // ROBOT_WATER_BOX_FULL_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Mop Dock Tray full of water";
+                    break;
+                case 114: // MOP_LOSE_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
+                    parameters.message = "Lost mop pad";
+                    break;
+                case 117: // W11PLUS_STATION_NO_WATER_MODULE_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock water module not installed";
+                    break;
+                case 121: // DUST_FULL_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock dust bag full or dust duct clogged";
+                    break;
+                case 125: // STATION_COMMUNICATION_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock communication error";
+                    break;
+                case 128: // STATION_COVER_NOT_CLOSE
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock cover not closed";
+                    break;
+                case 129: // DUST_UNINSTALL_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Auto-Empty Dock cover open or missing dust bag";
+                    break;
+                case 131: // W11PLUS_CLEANING_LIQUID_LACK_ERROR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock cleaning liquid empty";
+                    break;
+                case 134: // WATER_INJECTION_TIMEOUT_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock water injection timeout";
+                    break;
+                case 135: // FORTIFIED_LIQUID_LACK_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock fortified liquid empty";
+                    break;
+                case 136: // WATER_LEVEL_SENSOR_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock water level sensor error";
+                    break;
+                case 148: // AIR_MOTOR_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock air motor error";
+                    break;
+                case 149: // MOTOR_RAISED_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock motor raise error";
+                    break;
+                case 150: // MOTOR_DOWN_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock motor down error";
+                    break;
+                case 151: // TEMPERATURE_COLLECTION_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock temperature sensor error";
+                    break;
+                case 152: // DIRTY_TANK_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Mop Dock Wastewater Tank full or not installed";
+                    break;
+                case 204: // STATION_COMMUNICATION_ERR
+                    parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+                    parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+                    parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
+                    parameters.message = "Dock communication error";
+                    break;
+            }
+        }
+
+        return new ValetudoRobotError(parameters);
+    }
 
     getManufacturer() {
         return "Midea";
-    }
-
-    getModelDetails() { // TODO: possibly belongs into the J15 implementation
-        return Object.assign(
-            {},
-            super.getModelDetails(),
-            {
-                supportedAttachments: [
-                    stateAttrs.AttachmentStateAttribute.TYPE.MOP,
-                ]
-            }
-        );
     }
 
     /**
@@ -513,12 +1154,16 @@ class MideaValetudoRobot extends ValetudoRobot {
 }
 
 MideaValetudoRobot.FAN_SPEEDS = Object.freeze({
-    [stateAttrs.PresetSelectionStateAttribute.INTENSITY.OFF]: 0,
+    //[stateAttrs.PresetSelectionStateAttribute.INTENSITY.OFF]: 0, Works on the J15PU, but not really useful here
     [stateAttrs.PresetSelectionStateAttribute.INTENSITY.MIN]: 4,
     [stateAttrs.PresetSelectionStateAttribute.INTENSITY.LOW]: 1,
     [stateAttrs.PresetSelectionStateAttribute.INTENSITY.MEDIUM]: 2,
     [stateAttrs.PresetSelectionStateAttribute.INTENSITY.HIGH]: 3,
-    [stateAttrs.PresetSelectionStateAttribute.INTENSITY.MAX]: 5
+
+    // This is dangerous and should not be used on the J15 (Pro) Ultra. It is not exposed by the app
+    // The robot will try to run the fan harder than it can actually run, leading to it eventually shutting down hard
+    // due to probably some current limiter tripping; and sounding very concerning on the way there
+    // [stateAttrs.PresetSelectionStateAttribute.INTENSITY.MAX]: 5
 });
 
 MideaValetudoRobot.OPERATION_MODES = Object.freeze({
@@ -652,637 +1297,5 @@ MideaValetudoRobot.DOCK_STATUS_MAP = Object.freeze({
     88: stateAttrs.DockStatusStateAttribute.VALUE.IDLE,      // "after_manualcontorl_relocate"
     89: stateAttrs.DockStatusStateAttribute.VALUE.IDLE,      // "outof_map_range_relocate"
 });
-
-/**
- *
- * @param {number} errorType - Error category (1=solvable, 2=restart, 3=alert)
- * @param {number} errorDesc - Specific error code within the category
- *
- * @returns {ValetudoRobotError}
- */
-MideaValetudoRobot.MAP_ERROR_CODE = (errorType, errorDesc) => { // TODO: review these by hand
-    const vendorErrorCode = `${errorType}-${errorDesc}`;
-    const parameters = {
-        severity: {
-            kind: ValetudoRobotError.SEVERITY_KIND.UNKNOWN,
-            level: ValetudoRobotError.SEVERITY_LEVEL.UNKNOWN,
-        },
-        subsystem: ValetudoRobotError.SUBSYSTEM.UNKNOWN,
-        message: `Unknown error ${vendorErrorCode}`,
-        vendorErrorCode: vendorErrorCode
-    };
-
-    if (errorType === 1) { // Solvable errors
-        switch (errorDesc) {
-            case 1: // DUST_BOX_MISSING
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Dustbin missing";
-                break;
-            case 2: // WHEELS_DANGLING
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
-                parameters.message = "Wheel lost floor contact";
-                break;
-            case 3: // WHEELS_OVERLOAD
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
-                parameters.message = "Wheel jammed";
-                break;
-            case 4: // SIDE_BRUSH_FAULT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
-                parameters.message = "Side brush jammed";
-                break;
-            case 5: // ROLLING_BRUSH_FAULT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
-                parameters.message = "Main brush jammed";
-                break;
-            case 6: // DUST_MOTOR_OVERLOAD
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.CATASTROPHIC;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
-                parameters.message = "Fan speed abnormal";
-                break;
-            case 7: // FRONT_PANEL_FAULT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "Stuck front bumper";
-                break;
-            case 8: // RADAR_MASK
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS jammed";
-                break;
-            case 9: // FRONT_SENSOR_FAULT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "Cliff sensor dirty or robot on the verge of falling";
-                break;
-            case 10: // BATTERY_VERY_LOW_HIT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Low battery";
-                break;
-            case 11: // LEAN_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "Tilted robot";
-                break;
-            case 12: // LASER_SENSOR_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS jammed";
-                break;
-            case 13: // EDGE_SENSOR_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "Sensor dirty";
-                break;
-            case 14: // FIND_BARRIER
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot trapped by virtual restrictions";
-                break;
-            case 15: // MAGNETIC_FIELD_DISTURB
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "Magnetic interference";
-                break;
-            case 16: // LASER_SENSOR_BLOCK_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS bumper jammed";
-                break;
-            case 17: // MOP_LOSE_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Lost mop pad";
-                break;
-            case 18: // MOP_SLIP_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot stuck or trapped";
-                break;
-            case 19: // RECHARGE_FAIL
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Charging station without power";
-                break;
-            case 20: // VIBRATION_DRAG_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot stuck or trapped";
-                break;
-            case 21: // STERILIZATION_MODULE_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Sterilization module fault";
-                break;
-            case 22: // ROBOT_WATER_BOX_UNINSTALL_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Water tank missing";
-                break;
-            case 23: // WIPE_CHIP_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Wipe chip error";
-                break;
-            case 24: // RADAR_HIGH_TEMPERATURE
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS temperature out of operating range";
-                break;
-            case 32: // HAIR_CUT_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.MOTORS;
-                parameters.message = "Hair cutter jammed";
-                break;
-            case 43: // RECHARGE_FAIL (specific variant)
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Charging error";
-                break;
-            case 64: // MOP_DROP_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Lost mop pad";
-                break;
-            case 65: // ROATE_TIME_OUT_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Rotation timeout";
-                break;
-            case 66: // CANNOT_FIND_STATION
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot navigate to the dock";
-                break;
-            case 67: // RECHARGE_FAIL (another variant)
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Charging error";
-                break;
-            case 68: // RECHARGE_FAIL_NOSINGAL
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Charging station without power";
-                break;
-            case 69: // RADAR_HIGH_TEMPERATURE_RESOLVE_FAILED
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS temperature control failed";
-                break;
-            case 80: // CANNOT_ARRIVE_POINT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot reach target";
-                break;
-            case 81: // PHS_FIND_BARRIER
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot trapped by virtual restrictions";
-                break;
-            case 82: // FIND_BARRIER
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot trapped by virtual restrictions";
-                break;
-            case 83: // WHEELS_DANGLING
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
-                parameters.message = "Wheel lost floor contact";
-                break;
-            case 84: // ROBOT_OUT_STATION_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot failed to exit dock";
-                break;
-            case 85: // ROBOT_BEING_TRAPPED
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot stuck or trapped";
-                break;
-            case 87: // ROBOT_TIMEOUT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
-                parameters.message = "Robot operation timeout";
-                break;
-            case 88: // CARPET_START_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot start on carpet";
-                break;
-            case 89: // VM_WALL_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Stuck inside restricted area";
-                break;
-            case 90: // FORBIDDEN_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Stuck inside restricted area";
-                break;
-            case 91: // MOP_FORBIDDEN_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Stuck inside restricted area";
-                break;
-            case 92: // CHARGE_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot start while charging";
-                break;
-            case 93: // ROBOT_BEING_TRAPPED
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot stuck or trapped";
-                break;
-            case 94: // ROBOT_SLAM_LAYER_EMPTY
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Navigation map error";
-                break;
-            case 96: // DEPART_FROM_NARROW_AREA_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot stuck in narrow area";
-                break;
-            case 128: // ROBOT_CREATE_MAP_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Map creation error";
-                break;
-            case 160: // RADAR_HIGH_TEMPERATURE_RESOLVE_FAILED
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS temperature control failed";
-                break;
-            case 162: // ROBOT_CREATE_MAP_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Map creation error";
-                break;
-            case 164: // SLAM_LOCATION_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Localization error";
-                break;
-        }
-    } else if (errorType === 2) { // Restart errors
-        switch (errorDesc) {
-            case 1: // LASER_COM_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.CATASTROPHIC;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "LDS communication error";
-                break;
-            case 2: // MAINFRAME_COM_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.CATASTROPHIC;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.CORE;
-                parameters.message = "Mainframe communication error";
-                break;
-        }
-    } else if (errorType === 3) { // Alert errors
-        switch (errorDesc) {
-            case 1: // LOCATION_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Localization error";
-                break;
-            case 2: // BATTERY_LOW_HIT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Low battery";
-                break;
-            case 3: // DUST_BOX_FULL
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.INFO;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Dustbin full";
-                break;
-            case 4: // WATER_BOX_LACK
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Water tank empty";
-                break;
-            case 5: // RECHARGE_FAIL
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.POWER;
-                parameters.message = "Charging error";
-                break;
-            case 6: // SENSOR_DIRTY_MSG
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.SENSORS;
-                parameters.message = "Sensor dirty";
-                break;
-            case 8: // MOP_LIFT_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Mop lift error";
-                break;
-            case 9: // DUST_INTERUPT_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock dust collection interrupted";
-                break;
-            case 10: // DUST_BOX_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock dust collection error";
-                break;
-            case 11: // DUST_OPENED_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock cover open or missing dust bag";
-                break;
-            case 12: // DUST_UNINSTALL_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock cover open or missing dust bag";
-                break;
-            case 13: // DUST_FULL_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock dust bag full or dust duct clogged";
-                break;
-            case 32: // CANNOT_ARRIVE_POINT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot reach target";
-                break;
-            case 33: // LOOK_DOWN_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot start in current position";
-                break;
-            case 34: // ON_CARPET_START_MODE
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Cannot start on carpet";
-                break;
-            case 35: // VM_WALL_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Stuck inside restricted area";
-                break;
-            case 37: // WATER_FORBIDDEN_AREA_START
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Stuck inside restricted area";
-                break;
-            case 100: // STATION_DISCONNECT
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock communication error";
-                break;
-            case 101: // ROBOT_NOT_IN_STATION
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
-                parameters.message = "Robot not in dock";
-                break;
-            case 105: // WASH_WATER_BOX_UNINSTALL_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Mop Dock Clean Water Tank not installed";
-                break;
-            case 106: // CLEAN_WATER_TANK_WITHOUT_WATER_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Mop Dock Clean Water Tank empty";
-                break;
-            case 107: // STATION_CLOSE_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock close error";
-                break;
-            case 109: // STATION_FAN_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock fan error";
-                break;
-            case 111: // STATION_RAG_BOX_FULL_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Mop Dock Tray not installed";
-                break;
-            case 112: // ROBOT_WATER_BOX_FULL_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Mop Dock Tray full of water";
-                break;
-            case 114: // MOP_LOSE_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.ATTACHMENTS;
-                parameters.message = "Lost mop pad";
-                break;
-            case 117: // W11PLUS_STATION_NO_WATER_MODULE_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock water module not installed";
-                break;
-            case 121: // DUST_FULL_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock dust bag full or dust duct clogged";
-                break;
-            case 125: // STATION_COMMUNICATION_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock communication error";
-                break;
-            case 128: // STATION_COVER_NOT_CLOSE
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock cover not closed";
-                break;
-            case 129: // DUST_UNINSTALL_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Auto-Empty Dock cover open or missing dust bag";
-                break;
-            case 131: // W11PLUS_CLEANING_LIQUID_LACK_ERROR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock cleaning liquid empty";
-                break;
-            case 134: // WATER_INJECTION_TIMEOUT_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock water injection timeout";
-                break;
-            case 135: // FORTIFIED_LIQUID_LACK_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock fortified liquid empty";
-                break;
-            case 136: // WATER_LEVEL_SENSOR_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock water level sensor error";
-                break;
-            case 148: // AIR_MOTOR_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock air motor error";
-                break;
-            case 149: // MOTOR_RAISED_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock motor raise error";
-                break;
-            case 150: // MOTOR_DOWN_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock motor down error";
-                break;
-            case 151: // TEMPERATURE_COLLECTION_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.ERROR;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock temperature sensor error";
-                break;
-            case 152: // DIRTY_TANK_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Mop Dock Wastewater Tank not installed or full";
-                break;
-            case 204: // STATION_COMMUNICATION_ERR
-                parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
-                parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-                parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-                parameters.message = "Dock communication error";
-                break;
-        }
-    }
-
-    return new ValetudoRobotError(parameters);
-};
-
-/**
- *
- * @param {number} dockErrorCode
- *
- * @returns {ValetudoRobotError}
- */
-MideaValetudoRobot.MAP_DOCK_ERROR_CODE = (dockErrorCode) => {
-    const parameters = {
-        severity: {
-            kind: ValetudoRobotError.SEVERITY_KIND.UNKNOWN,
-            level: ValetudoRobotError.SEVERITY_LEVEL.UNKNOWN,
-        },
-        subsystem: ValetudoRobotError.SUBSYSTEM.UNKNOWN,
-        message: `Unknown Dock error ${dockErrorCode}`,
-        vendorErrorCode: typeof dockErrorCode === "number" ? dockErrorCode.toString() : `unknown (${dockErrorCode})`
-    };
-
-    switch (dockErrorCode) {
-        case 106:
-            parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-            parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-            parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-            parameters.message = "Mop Dock Clean Water Tank empty or not installed";
-            break;
-        case 152:
-            parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.PERMANENT;
-            parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
-            parameters.subsystem = ValetudoRobotError.SUBSYSTEM.DOCK;
-            parameters.message = "Mop Dock Wastewater Tank full or not installed";
-            break;
-    }
-
-    return new ValetudoRobotError(parameters);
-};
 
 module.exports = MideaValetudoRobot;

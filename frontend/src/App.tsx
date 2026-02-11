@@ -6,13 +6,11 @@ import {SnackbarProvider} from "notistack";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {ReactQueryDevtools} from "@tanstack/react-query-devtools";
 import {useLocalStorage} from "./hooks";
-import "@fontsource/roboto/300.css";
-import "@fontsource/roboto/400.css";
-import "@fontsource/roboto/500.css";
-import "@fontsource/roboto/700.css";
+import "@fontsource/ibm-plex-sans/300.css";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/700.css";
 import "@fontsource/jetbrains-mono/200.css";
-import {LocalizationProvider} from "@mui/x-date-pickers";
-import {AdapterDateFns} from "@mui/x-date-pickers/AdapterDateFns";
 
 const ANIMATION_SPEED = 2;
 const queryClient = new QueryClient();
@@ -30,6 +28,10 @@ const App = (): React.ReactElement => {
             });
 
             return createTheme({
+                typography: {
+                    fontFamily: '"IBM Plex Sans", "Helvetica", sans-serif',
+                    fontSize: 15,
+                },
                 palette: {
                     mode: paletteMode,
                 },
@@ -52,19 +54,17 @@ const App = (): React.ReactElement => {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <ThemeProvider theme={theme}>
-                    <CssBaseline/>
+            <ThemeProvider theme={theme}>
+                <CssBaseline/>
 
-                    <SnackbarProvider maxSnack={3} autoHideDuration={5000}>
-                        <CapabilitiesProvider>
-                            <RouterChoice paletteMode={paletteMode} setPaletteMode={setPaletteMode}/>
-                        </CapabilitiesProvider>
-                    </SnackbarProvider>
-                </ThemeProvider>
+                <SnackbarProvider maxSnack={3} autoHideDuration={5000}>
+                    <CapabilitiesProvider>
+                        <RouterChoice paletteMode={paletteMode} setPaletteMode={setPaletteMode}/>
+                    </CapabilitiesProvider>
+                </SnackbarProvider>
+            </ThemeProvider>
 
-                <ReactQueryDevtools initialIsOpen={false} buttonPosition={"bottom-left"}/>
-            </LocalizationProvider>
+            <ReactQueryDevtools initialIsOpen={false} buttonPosition={"bottom-left"}/>
         </QueryClientProvider>
     );
 };

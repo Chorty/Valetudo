@@ -12,12 +12,9 @@ img_delete_button.src = deleteButtonIconSVG;
 const img_move_button = new Image();
 img_move_button.src = moveButtonIconSVG;
 
-const buttonHitboxPadding = 22.5;
-const lineHitboxPadding = 22.5;
+const lineHitboxPadding = considerHiDPI(22.5);
 
 abstract class LineClientStructure extends ClientStructure {
-    public static TYPE = "LineClientStructure";
-
     public x1: number;
     public y1: number;
 
@@ -60,41 +57,63 @@ abstract class LineClientStructure extends ClientStructure {
 
     protected abstract setLineStyle(ctx: CanvasRenderingContext2D) : void;
 
-    draw(ctxWrapper: Canvas2DContextTrackingWrapper, transformationMatrixToScreenSpace: DOMMatrixInit, scaleFactor: number): void {
-        const ctx = ctxWrapper.getContext();
-        const p0 = new DOMPoint(this.x0, this.y0).matrixTransform(transformationMatrixToScreenSpace);
-        const p1 = new DOMPoint(this.x1, this.y1).matrixTransform(transformationMatrixToScreenSpace);
-
-
-        ctxWrapper.save();
-
-
+    protected drawLine(ctx: CanvasRenderingContext2D, p0: DOMPoint, p1: DOMPoint, scaleFactor: number): void {
         this.setLineStyle(ctx);
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(0,0,0, 0.8)";
+        ctx.lineWidth = ctx.lineWidth + considerHiDPI(2);
 
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
         ctx.lineTo(p1.x, p1.y);
         ctx.stroke();
 
+        ctx.restore();
+
+
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+    }
+
+    draw(ctxWrapper: Canvas2DContextTrackingWrapper, transformationMatrixToScreenSpace: DOMMatrixInit, scaleFactor: number): void {
+        const ctx = ctxWrapper.getContext();
+        const p0 = new DOMPoint(this.x0, this.y0).matrixTransform(transformationMatrixToScreenSpace);
+        const p1 = new DOMPoint(this.x1, this.y1).matrixTransform(transformationMatrixToScreenSpace);
+
+        ctxWrapper.save();
+
+        this.drawLine(ctx, p0, p1, scaleFactor);
 
         ctxWrapper.restore();
 
         if (this.active) {
-            ctx.drawImage(
-                img_delete_button,
-                p0.x - considerHiDPI(img_delete_button.width) / 2,
-                p0.y - considerHiDPI(img_delete_button.height) / 2,
-                considerHiDPI(img_delete_button.width),
-                considerHiDPI(img_delete_button.height)
-            );
+            const scaledDeleteButtonSize = this.getControlElementImageScaledSize(img_delete_button, scaleFactor);
+            const scaledMoveButtonSize = this.getControlElementImageScaledSize(img_move_button, scaleFactor);
 
-            ctx.drawImage(
-                img_move_button,
-                p1.x - considerHiDPI(img_move_button.width) / 2,
-                p1.y - considerHiDPI(img_move_button.height) / 2,
-                considerHiDPI(img_move_button.width),
-                considerHiDPI(img_move_button.height)
-            );
+
+            const dx = p1.x - p0.x;
+            const dy = p1.y - p0.y;
+            const angle = Math.atan2(dy, dx);
+
+            const drawRotatedIcon = (img: HTMLImageElement, x: number, y: number, size: {width: number, height: number}) => {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+                ctx.drawImage(
+                    this.getOptimizedImage(img, size.width, size.height),
+                    -size.width / 2,
+                    -size.height / 2,
+                    size.width,
+                    size.height
+                );
+                ctx.restore();
+            };
+
+            drawRotatedIcon(img_delete_button, p0.x, p0.y, scaledDeleteButtonSize);
+            drawRotatedIcon(img_move_button, p1.x, p1.y, scaledMoveButtonSize);
         }
 
         this.rotationRemovalTransformationMatrix = new DOMMatrix().rotateFromVectorSelf(p1.y - p0.y,p1.x - p0.x);
@@ -107,10 +126,13 @@ abstract class LineClientStructure extends ClientStructure {
         );
     }
 
-    tap(tappedPoint : PointCoordinates, transformationMatrixToScreenSpace: DOMMatrixInit) : StructureInterceptionHandlerResult {
+    tap(tappedPoint : PointCoordinates, transformationMatrixToScreenSpace: DOMMatrixInit, scaleFactor: number) : StructureInterceptionHandlerResult {
         const p0 = new DOMPoint(this.x0, this.y0).matrixTransform(transformationMatrixToScreenSpace);
 
-        const deleteButtonHitbox = calculateBoxAroundPoint(p0, buttonHitboxPadding);
+        const scaledDeleteButtonSize = this.getControlElementImageScaledSize(img_delete_button, scaleFactor);
+        const deleteButtonHitboxPadding = Math.max(scaledDeleteButtonSize.width, scaledDeleteButtonSize.height) / 2;
+        const deleteButtonHitbox = calculateBoxAroundPoint(p0, deleteButtonHitboxPadding);
+
         const sTappedPoint = new DOMPoint(tappedPoint.x,tappedPoint.y).matrixTransform(this.rotationRemovalTransformationMatrix);
 
         if (this.active && isInsideBox(tappedPoint, deleteButtonHitbox)) {
@@ -138,20 +160,29 @@ abstract class LineClientStructure extends ClientStructure {
         }
     }
 
-    translate(startCoordinates: PointCoordinates, lastCoordinates: PointCoordinates, currentCoordinates: PointCoordinates, transformationMatrixToScreenSpace : DOMMatrixInit) : StructureInterceptionHandlerResult {
+    translate(
+        startCoordinates: PointCoordinates,
+        lastCoordinates: PointCoordinates,
+        currentCoordinates: PointCoordinates,
+        transformationMatrixToScreenSpace : DOMMatrixInit,
+        scaleFactor: number,
+        pixelSize: number
+    ) : StructureInterceptionHandlerResult {
         if (this.active) {
             const p1 = new DOMPoint(this.x1, this.y1).matrixTransform(transformationMatrixToScreenSpace);
 
-            const resizeButtonHitbox = calculateBoxAroundPoint(p1, buttonHitboxPadding);
+            const scaledMoveButtonSize = this.getControlElementImageScaledSize(img_move_button, scaleFactor);
+            const moveButtonHitboxPadding = Math.max(scaledMoveButtonSize.width, scaledMoveButtonSize.height) / 2;
+            const moveButtonHitbox = calculateBoxAroundPoint(p1, moveButtonHitboxPadding);
 
-            if (!this.isResizing && isInsideBox(lastCoordinates, resizeButtonHitbox)) {
+            if (!this.isResizing && isInsideBox(lastCoordinates, moveButtonHitbox)) {
                 this.isResizing = true;
             }
 
             const { dx, dy } = ClientStructure.calculateTranslateDelta(lastCoordinates, currentCoordinates, transformationMatrixToScreenSpace);
             const sLast = new DOMPoint(lastCoordinates.x,lastCoordinates.y).matrixTransform(this.rotationRemovalTransformationMatrix);
 
-            if (isInsideBox(lastCoordinates, resizeButtonHitbox)) {
+            if (this.isResizing) {
                 this.x1 += dx;
                 this.y1 += dy;
 
@@ -222,10 +253,6 @@ abstract class LineClientStructure extends ClientStructure {
 
         this.x1 = this.x0 + xOffset;
         this.y1 = this.y0 + yOffset;
-    }
-
-    getType(): string {
-        return LineClientStructure.TYPE;
     }
 }
 

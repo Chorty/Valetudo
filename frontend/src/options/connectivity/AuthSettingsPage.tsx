@@ -1,5 +1,6 @@
 import {
     Box,
+    Button,
     Checkbox,
     Divider,
     FormControl,
@@ -15,7 +16,6 @@ import {
 } from "@mui/material";
 import React from "react";
 import {useHTTPBasicAuthConfigurationMutation, useHTTPBasicAuthConfigurationQuery} from "../../api";
-import {LoadingButton} from "@mui/lab";
 import InfoBox from "../../components/InfoBox";
 import PaperContainer from "../../components/PaperContainer";
 import {
@@ -130,24 +130,21 @@ const AuthSettings = (): React.ReactElement => {
                 <Typography color="info">
                     Valetudo will by default try to block access from public-routable IP addresses
                     for your safety and convenience.
-                    <br/><br/>
+                    <br/>
                     If you want to allow external access to your Valetudo instance, consider using a VPN such as
                     WireGuard or OpenVPN to ensure the safety of your network.
                     <br/><br/>
                     If you don&apos;t want to use a VPN, usage of a reverse proxy in front of Valetudo and all of your
-                    other
-                    IoT things and network services is strongly recommended, as a recent version of a proper WebServer
-                    such as nginx, the Apache HTTP Server or similar will likely be more secure than Valetudo itself.
-                    <br/>
-                    Moreover, this approach will group all access logs to all services in a single place.
-                    It&apos;s also much easier to implement some kind of Single sign-on that way.
+                    other IoT and network services (e.g. Home Assistant, Jellyfin) is strongly recommended.
+                    A proper Webserver (e.g. nginx, Apache) is engineered and hardened to be public-facing.
+                    Additionally, a setup like that provides you with central access logs and the ability to implement a central auth.
                 </Typography>
             </InfoBox>
 
             <Divider sx={{mt: 1}} style={{marginBottom: "1rem"}}/>
             <Grid2 container>
                 <Grid2 style={{marginLeft: "auto"}}>
-                    <LoadingButton
+                    <Button
                         loading={configurationUpdating}
                         color="primary"
                         variant="outlined"
@@ -162,7 +159,7 @@ const AuthSettings = (): React.ReactElement => {
                         }}
                     >
                         Save configuration
-                    </LoadingButton>
+                    </Button>
                 </Grid2>
             </Grid2>
         </>
