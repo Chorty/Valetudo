@@ -1,0 +1,23 @@
+{
+  "name": "valetudo-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for Valetudo vacuum control with modular plugin system",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "valetudo-mcp-server": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["mcp", "valetudo", "vacuum", "dreame", "home-automation"],
+  "license": "Apache-2.0"
+}
