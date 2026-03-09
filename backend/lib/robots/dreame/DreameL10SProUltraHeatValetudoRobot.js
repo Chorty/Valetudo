@@ -227,6 +227,28 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
             value: entities.state.attributes.DockStatusStateAttribute.VALUE.IDLE
         }));
 
+        // === VacuumStreamer plugin capabilities ===
+        this.registerCapability(new capabilities.DreameVideoStreamCapability({
+            robot: this,
+            streamConfig: {
+                vacuumstreamerPath: "/data/vacuumstreamer/vacuumstreamer.so",
+                go2rtcPath: "/data/vacuumstreamer/go2rtc",
+                go2rtcConfigPath: "/data/vacuumstreamer/go2rtc.yaml",
+                videoMonitorPath: "/usr/bin/video_monitor",
+                udpPort: 6969,
+                go2rtcApiPort: 1984,
+            },
+        }));
+
+        this.registerCapability(new capabilities.DreameTextToSpeechCapability({
+            robot: this,
+            ttsConfig: {
+                tempDir: "/tmp",
+                playerCommand: "aplay",
+                defaultLanguage: "en",
+                maxTextLength: 200,
+            },
+        }));
 
     }
 

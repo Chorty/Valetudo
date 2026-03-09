@@ -31,6 +31,8 @@ module.exports = {
     SpeakerTestCapabilityRouter: require("./SpeakerTestCapabilityRouter"),
     SpeakerVolumeControlCapabilityRouter: require("./SpeakerVolumeControlCapabilityRouter"),
     StatisticsCapabilityRouter: require("./StatisticsCapabilityRouter"),
+    TextToSpeechCapabilityRouter: require("./TextToSpeechCapabilityRouter"),
+    VideoStreamCapabilityRouter: require("./VideoStreamCapabilityRouter"),
     VoicePackManagementCapabilityRouter: require("./VoicePackManagementCapabilityRouter"),
     WifiConfigurationCapabilityRouter: require("./WifiConfigurationCapabilityRouter"),
     WifiScanCapabilityRouter: require("./WifiScanCapabilityRouter"),
