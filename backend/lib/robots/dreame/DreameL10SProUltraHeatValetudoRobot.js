@@ -193,7 +193,7 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
             capabilities.DreamePetObstacleAvoidanceControlCapability,
             capabilities.DreameCollisionAvoidantNavigationControlCapability,
             capabilities.DreameAutoEmptyDockAutoEmptyIntervalControlCapabilityV2,
-            capabilities.DreameMopExtensionControlCapabilityV2,
+            capabilities.DreameMopExtensionControlCapabilityV1,
             capabilities.DreameMopDockMopWashTemperatureControlCapabilityV1,
             capabilities.DreameMopTwistControlCapabilityV2,
             capabilities.DreameMopExtensionFurnitureLegHandlingControlCapability,
