@@ -12,6 +12,7 @@
       "../frontend/build",
       "../build_metadata.json",
       "./lib/webserver/middlewares/res/egg_term.html",
+      "./lib/res/valetudo.openapi.schema.json",
       "../node_modules/swagger-ui-dist/swagger-ui.css",
       "./node_modules/swagger-ui-dist/swagger-ui.css"
     ]
