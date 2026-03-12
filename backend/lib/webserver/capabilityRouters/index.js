@@ -12,6 +12,7 @@ module.exports = {
     HighResolutionManualControlCapabilityRouter: require("./HighResolutionManualControlCapabilityRouter"),
     LocateCapabilityRouter: require("./LocateCapabilityRouter"),
     ManualControlCapabilityRouter: require("./ManualControlCapabilityRouter"),
+    MapManagementCapabilityRouter: require("./MapManagementCapabilityRouter"),
     MapResetCapabilityRouter: require("./MapResetCapabilityRouter"),
     MapSegmentEditCapabilityRouter: require("./MapSegmentEditCapabilityRouter"),
     MapSegmentMaterialControlCapabilityRouter: require("./MapSegmentMaterialControlCapabilityRouter"),

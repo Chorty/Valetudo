@@ -22,6 +22,7 @@ import {
     DarkMode as DarkModeIcon,
     Map as MapManagementIcon,
     Home as HomeIcon,
+    Layers as MapBackupIcon,
     Article as LogIcon,
     Menu as MenuIcon,
     ArrowBack as BackIcon,
@@ -130,6 +131,17 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         menuText: "Statistics",
         requiredCapabilities: {
             capabilities: [Capability.TotalStatistics],
+            type: "allof"
+        }
+    },
+    {
+        kind: "MenuEntry",
+        route: "/robot/map_management_capability",
+        title: "Floor Management",
+        menuIcon: MapBackupIcon,
+        menuText: "Floor Management",
+        requiredCapabilities: {
+            capabilities: [Capability.MapManagement],
             type: "allof"
         }
     },

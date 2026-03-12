@@ -250,6 +250,15 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
             },
         }));
 
+        this.registerCapability(new capabilities.DreameMapManagementCapability({
+            robot: this,
+            mapConfig: {
+                storagePath: "/data/maploader",
+                mapDirs: ["/data/ri", "/data/map", "/data/DivideMap"],
+                multMapConfig: "/data/config/ava/mult_map.json",
+            },
+        }));
+
     }
 
     parseAndUpdateState(data) {

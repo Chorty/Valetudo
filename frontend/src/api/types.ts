@@ -49,7 +49,8 @@ export enum Capability {
     WifiScan = "WifiScanCapability",
     ZoneCleaning = "ZoneCleaningCapability",
     Quirks = "QuirksCapability",
-    ObstacleImages = "ObstacleImagesCapability"
+    ObstacleImages = "ObstacleImagesCapability",
+    MapManagement = "MapManagementCapability"
 }
 
 export type Point = {
@@ -663,4 +664,17 @@ export interface AutoEmptyDockAutoEmptyDurationPayload {
 
 export interface AutoEmptyDockAutoEmptyDurationControlProperties {
     supportedDurations: Array<AutoEmptyDockAutoEmptyDuration>,
+}
+
+export interface MapManagementMapEntry {
+    id: string;
+    name: string;
+    timestamp: number;
+    isActive?: boolean;
+}
+
+export interface MapManagementCommand {
+    action: "save" | "load" | "delete" | "rename";
+    id?: string;
+    name?: string;
 }

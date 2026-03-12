@@ -3,6 +3,7 @@ import {Navigate, Routes} from "react-router-dom";
 import Consumables from "./Consumables";
 import ManualControl from "./ManualControl";
 import TotalStatistics from "./TotalStatistics";
+import MapManagementCapabilityPage from "./capabilities/MapManagementCapability";
 import React from "react";
 
 const RobotRouter = (): React.ReactElement => {
@@ -11,6 +12,7 @@ const RobotRouter = (): React.ReactElement => {
             <Route path={"consumables"} element={<Consumables/>}/>
             <Route path={"manual_control"} element={<ManualControl/>}/>
             <Route path={"total_statistics"} element={<TotalStatistics/>}/>
+            <Route path={"map_management_capability"} element={<MapManagementCapabilityPage/>}/>
 
             <Route path="*" element={<Navigate to="/" />} />
         </Routes>
