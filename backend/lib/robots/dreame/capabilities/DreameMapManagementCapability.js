@@ -53,35 +53,35 @@ class DreameMapManagementCapability extends MapManagementCapability {
     }
 
     /**
-     * @returns {Promise<Array<{id: string, name: string, timestamp: number}>>}
+     * @returns {Promise<Array<{id: string, name: string, timestamp: number, isActive?: boolean}>>}
      */
     async getMapList() {
         const storagePath = this.mapConfig.storagePath;
         const maps = [];
 
         try {
-            if (!fs.existsSync(storagePath)) {
-                return maps;
-            }
+            await fs.promises.access(storagePath);
+        } catch (_) {
+            return maps; // Storage path doesn't exist
+        }
 
-            const entries = fs.readdirSync(storagePath, {withFileTypes: true});
-            for (const entry of entries) {
-                if (!entry.isDirectory()) {
-                    continue;
-                }
+        try {
+            const entries = await fs.promises.readdir(storagePath, {withFileTypes: true});
 
+            await Promise.all(entries.filter(e => e.isDirectory()).map(async (entry) => {
                 const metadataPath = path.join(storagePath, entry.name, "metadata.json");
                 let name = entry.name;
                 let timestamp = 0;
 
                 try {
-                    const meta = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+                    const meta = JSON.parse(await fs.promises.readFile(metadataPath, "utf8"));
                     name = meta.name || entry.name;
                     timestamp = meta.timestamp || 0;
-                } catch (e) {
+                } catch (_) {
                     // metadata missing or unreadable — fall back to directory mtime
                     try {
-                        timestamp = Math.floor(fs.statSync(path.join(storagePath, entry.name)).mtimeMs);
+                        const stat = await fs.promises.stat(path.join(storagePath, entry.name));
+                        timestamp = Math.floor(stat.mtimeMs);
                     } catch (_) {
                         // ignore
                     }
@@ -92,7 +92,7 @@ class DreameMapManagementCapability extends MapManagementCapability {
                     name: name,
                     timestamp: timestamp,
                 });
-            }
+            }));
         } catch (e) {
             Logger.error("Failed to list maps:", e.message);
         }
@@ -186,18 +186,24 @@ class DreameMapManagementCapability extends MapManagementCapability {
 
         Logger.info(`Loading map "${mapName}" (id: ${id})`);
 
-        try {
-            // Step 1: Remove current active map data
-            Logger.info("  Removing current active map data...");
-            for (const dir of this.mapConfig.mapDirs) {
-                if (fs.existsSync(dir)) {
-                    execSync(`rm -rf "${dir}"`);
-                }
+        // Step 1: Move current map dirs to .loadbak — never delete before restore succeeds
+        Logger.info("  Staging current map data for safe swap...");
+        const stagedDirs = [];
+        for (const dir of this.mapConfig.mapDirs) {
+            if (fs.existsSync(dir)) {
+                const bak = `${dir}.loadbak`;
+                execSync(`mv "${dir}" "${bak}"`);
+                stagedDirs.push({active: dir, bak});
             }
-            if (fs.existsSync(this.mapConfig.multMapConfig)) {
-                execSync(`rm -f "${this.mapConfig.multMapConfig}"`);
-            }
+        }
+        const multMapBak = `${this.mapConfig.multMapConfig}.loadbak`;
+        let multMapStaged = false;
+        if (fs.existsSync(this.mapConfig.multMapConfig)) {
+            execSync(`mv "${this.mapConfig.multMapConfig}" "${multMapBak}"`);
+            multMapStaged = true;
+        }
 
+        try {
             // Step 2: Copy saved map data to active locations
             Logger.info("  Restoring saved map data...");
             for (const dir of this.mapConfig.mapDirs) {
@@ -214,7 +220,6 @@ class DreameMapManagementCapability extends MapManagementCapability {
             // Restore mult_map.json
             const savedMultMap = path.join(sourceDir, "mult_map.json");
             if (fs.existsSync(savedMultMap)) {
-                // Ensure config directory exists
                 fs.mkdirSync(path.dirname(this.mapConfig.multMapConfig), {recursive: true});
                 execSync(`cp -a "${savedMultMap}" "${this.mapConfig.multMapConfig}"`);
                 Logger.info("    Restored mult_map.json");
@@ -225,11 +230,36 @@ class DreameMapManagementCapability extends MapManagementCapability {
             await this._restartServices();
 
             Logger.info(`Map "${mapName}" loaded successfully`);
-
-            // Track which floor slot is currently active
             this._setActiveId(id);
+
+            // Step 4: Remove staged backups now that restore fully succeeded
+            for (const {bak} of stagedDirs) {
+                try { execSync(`rm -rf "${bak}"`); } catch (_) {}
+            }
+            if (multMapStaged) {
+                try { execSync(`rm -f "${multMapBak}"`); } catch (_) {}
+            }
         } catch (e) {
-            Logger.error(`Failed to load map "${mapName}":`, e.message);
+            // Restore failed — roll back staged backups to preserve original data
+            Logger.error(`Failed to load map "${mapName}", rolling back:`, e.message);
+            for (const {active, bak} of stagedDirs) {
+                try {
+                    if (fs.existsSync(active)) { execSync(`rm -rf "${active}"`); }
+                    execSync(`mv "${bak}" "${active}"`);
+                } catch (rollbackErr) {
+                    Logger.error(`  Rollback failed for ${active}:`, rollbackErr.message);
+                }
+            }
+            if (multMapStaged && fs.existsSync(multMapBak)) {
+                try {
+                    if (fs.existsSync(this.mapConfig.multMapConfig)) {
+                        execSync(`rm -f "${this.mapConfig.multMapConfig}"`);
+                    }
+                    execSync(`mv "${multMapBak}" "${this.mapConfig.multMapConfig}"`);
+                } catch (rollbackErr) {
+                    Logger.error("  Rollback failed for mult_map.json:", rollbackErr.message);
+                }
+            }
             throw new Error(`Failed to load map: ${e.message}`);
         }
     }
@@ -337,6 +367,7 @@ class DreameMapManagementCapability extends MapManagementCapability {
     async importMap(data, name) {
         const id = this._generateId(name);
         const tempArchive = `/tmp/valetudo_map_import_${Date.now()}.tar.gz`;
+        const tempExtractDir = `/tmp/valetudo_map_extract_${Date.now()}`;
 
         Logger.info(`Importing map as "${name}" (id: ${id})`);
 
@@ -345,7 +376,6 @@ class DreameMapManagementCapability extends MapManagementCapability {
             fs.writeFileSync(tempArchive, data);
 
             // Extract to temp directory first to validate
-            const tempExtractDir = `/tmp/valetudo_map_extract_${Date.now()}`;
             fs.mkdirSync(tempExtractDir, {recursive: true});
             execSync(`tar -xzf "${tempArchive}" -C "${tempExtractDir}"`);
 
@@ -393,9 +423,9 @@ class DreameMapManagementCapability extends MapManagementCapability {
 
             return {id: id, name: name};
         } catch (e) {
-            // Cleanup on failure
+            // Cleanup on failure — remove both the archive and the extract dir
             try {
-                execSync(`rm -rf "${tempArchive}"`);
+                execSync(`rm -rf "${tempArchive}" "${tempExtractDir}"`);
             } catch (_) {
                 // ignore
             }

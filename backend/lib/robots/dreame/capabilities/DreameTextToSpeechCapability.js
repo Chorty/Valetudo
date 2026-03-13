@@ -81,6 +81,9 @@ class DreameTextToSpeechCapability extends TextToSpeechCapability {
         } finally {
             this._speaking = false;
             this._currentText = null;
+            // Clean up temp audio files
+            try { fs.unlinkSync(audioFile); } catch (_) {}
+            try { fs.unlinkSync(path.join(this.ttsConfig.tempDir, "valetudo_tts.wav")); } catch (_) {}
         }
     }
 
@@ -168,24 +171,46 @@ class DreameTextToSpeechCapability extends TextToSpeechCapability {
                 },
             }, (response) => {
                 if (response.statusCode === 302 || response.statusCode === 301) {
-                    // Follow redirect
-                    https.get(response.headers.location, {
+                    response.resume(); // Discard redirect body so socket doesn't hang
+                    const location = response.headers.location;
+                    if (!location) {
+                        file.close();
+                        fs.unlink(outputPath, () => {});
+                        reject(new Error("TTS redirect had no Location header"));
+                        return;
+                    }
+                    https.get(location, {
                         headers: {"User-Agent": "Mozilla/5.0"},
                     }, (redirectResponse) => {
+                        if (redirectResponse.statusCode !== 200) {
+                            redirectResponse.resume();
+                            file.close();
+                            fs.unlink(outputPath, () => {});
+                            reject(new Error(`TTS redirect failed with status ${redirectResponse.statusCode}`));
+                            return;
+                        }
                         redirectResponse.pipe(file);
                         file.on("finish", () => {
-                            file.close(resolve);
+                            file.close(() => resolve());
                         });
-                    }).on("error", reject);
+                    }).on("error", (e) => {
+                        file.close();
+                        fs.unlink(outputPath, () => {});
+                        reject(e);
+                    });
                 } else if (response.statusCode === 200) {
                     response.pipe(file);
                     file.on("finish", () => {
                         file.close(resolve);
                     });
                 } else {
+                    response.resume();
+                    file.close();
+                    fs.unlink(outputPath, () => {});
                     reject(new Error(`TTS download failed with status ${response.statusCode}`));
                 }
             }).on("error", (e) => {
+                file.close();
                 fs.unlink(outputPath, () => {}); // Clean up partial file
                 reject(e);
             });

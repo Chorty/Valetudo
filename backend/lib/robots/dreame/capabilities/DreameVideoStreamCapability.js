@@ -49,27 +49,40 @@ class DreameVideoStreamCapability extends VideoStreamCapability {
         this._videoMonitorProc = null;
         this._go2rtcProc = null;
         this._currentQuality = "high";
+
+        // Status cache to avoid repeated pidof shell spawns on rapid polls
+        this._statusCache = null;
+        this._statusCacheTs = 0;
     }
 
     /**
      * @returns {Promise<import("../../../core/capabilities/VideoStreamCapability").VideoStreamStatus>}
      */
     async getStreamStatus() {
+        const now = Date.now();
+        if (this._statusCache !== null && now - this._statusCacheTs < 1000) {
+            return this._statusCache;
+        }
+
         const videoMonitorPid = this._getPidOf("video_monitor");
         const go2rtcPid = this._getPidOf("go2rtc");
 
-        return {
+        this._statusCache = {
             active: videoMonitorPid !== null && go2rtcPid !== null,
             quality: this._currentQuality,
             pid: videoMonitorPid,
             go2rtcPid: go2rtcPid,
         };
+        this._statusCacheTs = now;
+
+        return this._statusCache;
     }
 
     /**
      * @returns {Promise<void>}
      */
     async startStream() {
+        this._statusCache = null; // Invalidate cache before checking live state
         const status = await this.getStreamStatus();
         if (status.active) {
             Logger.info("Video stream already active, skipping start");
@@ -135,11 +148,19 @@ class DreameVideoStreamCapability extends VideoStreamCapability {
     async stopStream() {
         Logger.info("Stopping video stream pipeline...");
 
+        // Kill via stored handles first (targeted), then killall as safety net for untracked instances
+        if (this._videoMonitorProc) {
+            try { this._videoMonitorProc.kill(); } catch (_) {}
+            this._videoMonitorProc = null;
+        }
+        if (this._go2rtcProc) {
+            try { this._go2rtcProc.kill(); } catch (_) {}
+            this._go2rtcProc = null;
+        }
         this._killProcess("video_monitor");
         this._killProcess("go2rtc");
 
-        this._videoMonitorProc = null;
-        this._go2rtcProc = null;
+        this._statusCache = null; // Invalidate cache after state change
 
         Logger.info("Video stream pipeline stopped");
     }

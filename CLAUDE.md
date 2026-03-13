@@ -13,10 +13,9 @@ This is a fork of [Valetudo](https://github.com/Hypfer/Valetudo) (v2026.02.0) wi
 - **Robot**: Dreame L10S Pro Ultra Heat, model r9302, FW 1574, aarch64, IP `192.168.1.31`
 - **SSH key**: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer/privatekeybc3a.id_rsa`
 - **Source**: `/Users/mattjoslin/Documents/GitHub/Valetudo/`
-- **Fork**: `chorty/Valetudo`, branch `feature/vacuumstreamer-plugin`, last commit `7117ee6d`
+- **Fork**: `chorty/Valetudo`, branch `feature/vacuumstreamer-plugin`, last commit `b39ca629`
 - **blockExternalAccess**: true — test API via `ssh ... 'wget -qO- http://127.0.0.1:80/...'`
 - **Watchdog**: `/data/valetudo_watchdog.sh` (while-true respawn), launched by `/data/_root_postboot.sh`
-- **Currently deployed**: frontend `main.45f0b334.js`, binary MD5 `c6620c51a011a10a050cdf1ee68a622b`
 
 ## Build & Deploy
 
@@ -40,7 +39,7 @@ cat build/aarch64/valetudo | ssh -i /Users/mattjoslin/Documents/GitHub/vacuumstr
 
 All customizations follow Valetudo's native **Capability** pattern:
 
-```
+```text
 Core Capability (abstract)           → backend/lib/core/capabilities/
   └── Dreame Implementation          → backend/lib/robots/dreame/capabilities/
 Capability Router (HTTP API)         → backend/lib/webserver/capabilityRouters/
@@ -90,8 +89,9 @@ Keep these to a **minimum** to reduce merge conflicts:
 Once deployed, these endpoints are available at `http://<vacuum-ip>:80/api/v2/robot/capabilities/`:
 
 ### VideoStreamCapability
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/VideoStreamCapability` | Get stream status (active, quality, PIDs) |
 | GET | `/VideoStreamCapability/urls` | Get stream URLs (RTSP, WebRTC, HLS) |
 | GET | `/VideoStreamCapability/quality` | Get current video quality |
@@ -100,16 +100,18 @@ Once deployed, these endpoints are available at `http://<vacuum-ip>:80/api/v2/ro
 | PUT | `/VideoStreamCapability` | `{"action": "set_quality", "value": "high"}` — Set quality |
 
 ### TextToSpeechCapability
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/TextToSpeechCapability` | Get TTS status |
 | PUT | `/TextToSpeechCapability` | `{"action": "speak", "text": "Hello", "language": "en"}` |
 | PUT | `/TextToSpeechCapability` | `{"action": "play_file", "filePath": "/tmp/audio.wav"}` |
 | PUT | `/TextToSpeechCapability` | `{"action": "stop"}` — Stop playback |
 
 ### MapManagementCapability
+
 | Method | Path | Description |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | GET | `/MapManagementCapability` | List floor slots (includes `isActive`) |
 | PUT | `/MapManagementCapability` | `{"action": "save", "name": "..."}` — Save current map to new slot |
 | PUT | `/MapManagementCapability` | `{"action": "load", "id": "..."}` — Load slot (triggers AVA restart) |
@@ -149,4 +151,5 @@ git merge upstream/master
 
 ## Branch
 
-- `feature/vacuumstreamer-plugin` — All plugin work lives here
+- `feature/vacuumstreamer-plugin` — All plugin work lives here (Valetudo fork)
+- `feature/vacuum-controls` — In-progress branch in `/Users/mattjoslin/Documents/GitHub/vacuumstreamer/` with vacuum controls, quirk settings, dock actions, statistics, and video quality profiles; pending integration into this Valetudo fork
