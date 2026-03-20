@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Vacuum Drive</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+
+    body {
+      background: #12121f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #e0e0f0;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      height: 20px;
+    }
+
+    #indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #444;
+      transition: background 0.2s, box-shadow 0.2s;
+      flex-shrink: 0;
+    }
+    #indicator.enabled {
+      background: #44dd77;
+      box-shadow: 0 0 8px #44dd77;
+    }
+    #indicator.moving {
+      background: #44aaff;
+      box-shadow: 0 0 8px #44aaff;
+    }
+
+    #status-text {
+      font-size: 12px;
+      color: #666;
+      min-width: 180px;
+    }
+
+    #joystick-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
+
+    /* Outer ring */
+    #joystick-base {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 45%, #1e1e35, #0e0e1e);
+      border: 2px solid #2a2a45;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    /* Direction labels */
+    .dir-label {
+      position: absolute;
+      font-size: 11px;
+      color: #2a2a55;
+      font-weight: 600;
+      letter-spacing: 1px;
+      pointer-events: none;
+    }
+    .dir-label.n { top: 10px; left: 50%; transform: translateX(-50%); }
+    .dir-label.s { bottom: 10px; left: 50%; transform: translateX(-50%); }
+    .dir-label.w { left: 10px; top: 50%; transform: translateY(-50%); }
+    .dir-label.e { right: 10px; top: 50%; transform: translateY(-50%); }
+
+    /* Crosshair */
+    #crosshair-h, #crosshair-v {
+      position: absolute;
+      background: rgba(255,255,255,0.05);
+      pointer-events: none;
+    }
+    #crosshair-h { top: 50%; left: 15%; width: 70%; height: 1px; transform: translateY(-50%); }
+    #crosshair-v { left: 50%; top: 15%; height: 70%; width: 1px; transform: translateX(-50%); }
+
+    /* Stick */
+    #stick {
+      position: absolute;
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 32%, #6060c8, #28288a);
+      border: 2px solid #5050aa;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+      transform: translate(-50%, -50%);
+      top: 50%;
+      left: 50%;
+      pointer-events: none;
+      transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+      will-change: left, top;
+    }
+
+    #stick.dragging {
+      background: radial-gradient(circle at 38% 32%, #88aaff, #3850cc);
+      border-color: #8888ff;
+      box-shadow: 0 2px 20px rgba(80,100,255,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+    }
+
+    /* Speed ring (visual indicator of distance from center) */
+    #speed-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(100, 100, 255, 0);
+      transform: translate(-50%, -50%);
+      top: 50%;
+      left: 50%;
+      pointer-events: none;
+      transition: border-color 0.1s, width 0.05s, height 0.05s;
+      width: 0; height: 0;
+    }
+
+    /* Buttons row */
+    #btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .ctrl-btn {
+      padding: 7px 18px;
+      border: 1px solid #2a2a45;
+      border-radius: 18px;
+      background: #1a1a30;
+      color: #888;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+    }
+    .ctrl-btn:hover { border-color: #5555aa; color: #ccc; }
+    .ctrl-btn.active { background: #1a2e1a; border-color: #44aa55; color: #88ee99; }
+    .ctrl-btn.stop-btn:hover { border-color: #aa4444; color: #ff8888; }
+  </style>
+</head>
+<body>
+
+<div id="status-row">
+  <div id="indicator"></div>
+  <div id="status-text">Tap joystick to drive</div>
+</div>
+
+<div id="joystick-wrap">
+  <div id="joystick-base">
+    <div id="crosshair-h"></div>
+    <div id="crosshair-v"></div>
+    <span class="dir-label n">FWD</span>
+    <span class="dir-label s">BWD</span>
+    <span class="dir-label w">L</span>
+    <span class="dir-label e">R</span>
+  </div>
+  <div id="speed-ring"></div>
+  <div id="stick"></div>
+</div>
+
+<div id="btn-row">
+  <button class="ctrl-btn" id="toggle-btn">Enable Drive</button>
+  <button class="ctrl-btn stop-btn" id="stop-btn">Stop</button>
+</div>
+
+<script>
+  const API = '/api/v2/robot/capabilities/HighResolutionManualControlCapability';
+  const RADIUS = 66;   // px — max stick displacement (joystick base r=110, stick r=44, so 66px feels right)
+  const SEND_HZ = 100; // ms between move commands while dragging
+
+  const base     = document.getElementById('joystick-base');
+  const stick    = document.getElementById('stick');
+  const ring     = document.getElementById('speed-ring');
+  const indicator = document.getElementById('indicator');
+  const statusEl = document.getElementById('status-text');
+  const toggleBtn = document.getElementById('toggle-btn');
+  const stopBtn  = document.getElementById('stop-btn');
+
+  let enabled = false;
+  let dragging = false;
+  let velocity = 0;
+  let angle = 0;
+  let autoDisableTimer = null;
+  let sendInterval = null;
+
+  // ── API helpers ──────────────────────────────────────────────────────────────
+
+  async function api(body) {
+    try {
+      await fetch(API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } catch (_) {}
+  }
+
+  async function setEnabled(val) {
+    if (val === enabled) return;
+    await api({ action: val ? 'enable' : 'disable' });
+    enabled = val;
+    updateUI();
+  }
+
+  // ── UI state ─────────────────────────────────────────────────────────────────
+
+  function updateUI() {
+    indicator.className = dragging ? 'moving' : (enabled ? 'enabled' : '');
+    toggleBtn.textContent = enabled ? 'Disable Drive' : 'Enable Drive';
+    toggleBtn.classList.toggle('active', enabled);
+    if (!enabled) statusEl.textContent = 'Tap joystick to drive';
+    else if (!dragging) statusEl.textContent = 'Drive on — drag to move';
+  }
+
+  // ── Joystick geometry ─────────────────────────────────────────────────────────
+
+  function getOffset(e) {
+    const r = base.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const touch = e.touches ? e.touches[0] : e;
+    return { dx: touch.clientX - cx, dy: touch.clientY - cy };
+  }
+
+  function setStickPos(dx, dy) {
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const clamp = Math.min(dist, RADIUS);
+    const theta = Math.atan2(dy, dx);
+    const sx = Math.cos(theta) * clamp;
+    const sy = Math.sin(theta) * clamp;
+
+    const halfBase = base.getBoundingClientRect().width / 2;
+    stick.style.left = (halfBase + sx) + 'px';
+    stick.style.top  = (halfBase + sy) + 'px';
+
+    // Speed ring — grows with distance
+    const pct = clamp / RADIUS;
+    const ringSize = clamp * 2 + 90;
+    ring.style.width  = ringSize + 'px';
+    ring.style.height = ringSize + 'px';
+    ring.style.borderColor = `rgba(100, 100, 255, ${pct * 0.5})`;
+
+    // Compute velocity / angle
+    velocity = Math.max(-1, Math.min(1, -sy / RADIUS));      // up = positive
+    angle    = Math.max(-180, Math.min(180, sx / RADIUS * 180)); // right = positive
+
+    statusEl.textContent = `vel ${velocity >= 0 ? '+' : ''}${velocity.toFixed(2)}  angle ${angle >= 0 ? '+' : ''}${angle.toFixed(0)}°`;
+  }
+
+  function resetStick() {
+    const half = base.getBoundingClientRect().width / 2;
+    stick.style.left = half + 'px';
+    stick.style.top  = half + 'px';
+    ring.style.width = '0';
+    ring.style.height = '0';
+    ring.style.borderColor = 'rgba(100,100,255,0)';
+    velocity = 0;
+    angle = 0;
+  }
+
+  // ── Drag logic ────────────────────────────────────────────────────────────────
+
+  async function onStart(e) {
+    e.preventDefault();
+    clearTimeout(autoDisableTimer);
+    if (!enabled) await setEnabled(true);
+    dragging = true;
+    stick.classList.add('dragging');
+    onMove(e);
+    updateUI();
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const { dx, dy } = getOffset(e);
+    setStickPos(dx, dy);
+  }
+
+  async function onEnd(e) {
+    if (!dragging) return;
+    dragging = false;
+    stick.classList.remove('dragging');
+    resetStick();
+    updateUI();
+    // Send a stop command immediately
+    await api({ action: 'move', vector: { velocity: 0, angle: 0 } });
+    // Auto-disable after 4s idle (Valetudo keep-alive will stop it sooner anyway)
+    clearTimeout(autoDisableTimer);
+    autoDisableTimer = setTimeout(() => setEnabled(false), 4000);
+  }
+
+  // ── Continuous send loop ──────────────────────────────────────────────────────
+
+  setInterval(() => {
+    if (enabled && dragging) {
+      api({ action: 'move', vector: { velocity, angle } });
+    }
+  }, SEND_HZ);
+
+  // ── Event listeners ───────────────────────────────────────────────────────────
+
+  base.addEventListener('mousedown',  onStart);
+  base.addEventListener('touchstart', onStart, { passive: false });
+  document.addEventListener('mousemove',  onMove);
+  document.addEventListener('touchmove',  onMove, { passive: false });
+  document.addEventListener('mouseup',    onEnd);
+  document.addEventListener('touchend',   onEnd);
+
+  toggleBtn.addEventListener('click', () => setEnabled(!enabled));
+  stopBtn.addEventListener('click', async () => {
+    dragging = false;
+    stick.classList.remove('dragging');
+    resetStick();
+    await api({ action: 'move', vector: { velocity: 0, angle: 0 } });
+    await setEnabled(false);
+    clearTimeout(autoDisableTimer);
+    updateUI();
+  });
+
+  // ── Initial fetch ─────────────────────────────────────────────────────────────
+
+  (async () => {
+    try {
+      const r = await fetch(API);
+      const data = await r.json();
+      enabled = data.enabled;
+      updateUI();
+    } catch (_) {}
+  })();
+</script>
+</body>
+</html>
