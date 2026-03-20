@@ -122,11 +122,76 @@ Once deployed, these endpoints are available at `http://<vacuum-ip>:80/api/v2/ro
 
 ## Home Assistant Integration
 
-- **Scripts**: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer/update_ha_scripts.py`
-- **Dreame angle convention**: positive = clockwise = **right** turn, negative = counterclockwise = **left** turn
+### Connection Info
+- **HA Version**: 2026.3.2 on `192.168.1.106:2224`
+- **SSH**: `sshpass -p 'Fuckthat2121@!' ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o IdentitiesOnly=yes -p 2224 hassio@192.168.1.106`
+- **HA supervisor API** (from inside SSH): `curl -s -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/...`
+- **Supervisor token**: Not available as env var in hassio SSH shell; read it from HA process environ: `cat /proc/$(ps aux | grep 'python3.*homeassistant' | grep -v grep | awk '{print $1}')/environ 2>/dev/null | tr '\0' '\n' | grep SUPERVISOR_TOKEN`
+- **`ha core restart`**: Does NOT work in hassio SSH shell (missing env); use `curl -X POST -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/restart`
+- **Scripts reload**: `curl -s -X POST -H "Authorization: Bearer $SUPERVISOR_TOKEN" -H "Content-Type: application/json" http://supervisor/core/api/services/script/reload`
+- **SSH rate limiting**: HA SSH add-on drops connections after rapid reconnects; wait 8-10s between attempts if "Permission denied"
+
+### Key Config Files (on HA)
+- `/config/scripts.yaml` — All vacuum scripts
+- `/config/configuration.yaml` — REST commands, sensors, input_selects
+- `/config/.storage/lovelace.dashboard_cleaning` — Vacuum control dashboard (storage-mode Lovelace)
+
+### Scripts: update_ha_scripts.py
+- **Path**: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer/update_ha_scripts.py`
+- After editing, reload Scripts in HA: Developer Tools → YAML → Scripts (or via API above)
+
+### Angle Convention
+- **Dreame**: positive = clockwise = **right** turn, negative = counterclockwise = **left** turn
 - `vacuum_drive_left` uses `{{ (... * 180) * -1 }}` (negative angle)
 - `vacuum_drive_right` uses `{{ ... * 180 }}` (positive angle)
-- After editing `update_ha_scripts.py`, reload Scripts in HA: Developer Tools → YAML → Scripts
+
+### Camera Entity
+- **HA 2024.10+**: YAML `camera: platform: generic` is silently ignored — must use UI config flow
+- The old `camera:` YAML block at line 26 of `configuration.yaml` still exists but is harmless/ignored
+- **Entity**: `camera.192_168_1_31`, entry_id `01KM23HZHYF6FJ4BKVAQJXQF07`, state `idle` (→ `streaming` when go2rtc pipeline is active)
+- **RTSP stream**: `rtsp://192.168.1.31:8554/vacuum`
+- **Still image**: `http://192.168.1.31:1984/api/frame.jpeg?src=vacuum`
+- To re-create via API: `POST /api/config/config_entries/flow {"handler":"generic"}` → submit stream_source + still_image_url → confirm
+
+### Dashboard: Hold-to-Move
+- All 4 direction buttons (forward/back/left/right) use `hold_action: {action: repeat, repeat_delay: 300}`
+- This fires the move command every 300ms while held; stops on release
+- Valetudo keep-alive sends `{velocity:0, angle:0}` every 700ms — vacuum stops within 700ms after commands stop
+
+### Drive Quiet Mode Scripts
+Two scripts at end of `/config/scripts.yaml`:
+
+```yaml
+vacuum_drive_enable:
+  alias: Vacuum Drive Enable
+  icon: mdi:gamepad-variant
+  sequence:
+  - action: rest_command.vacuum_set_fan_speed
+    data: {speed: low}
+  - action: rest_command.vacuum_set_water_usage
+    data: {level: min}
+  - action: rest_command.vacuum_set_mode
+    data: {mode: vacuum}
+  - action: rest_command.vacuum_drive_enable
+
+vacuum_drive_disable:
+  alias: Vacuum Drive Disable
+  icon: mdi:gamepad-variant-outline
+  sequence:
+  - action: rest_command.vacuum_drive_disable
+  - action: rest_command.vacuum_set_fan_speed
+    data: {speed: low}
+  - action: rest_command.vacuum_set_water_usage
+    data: {level: min}
+  - action: rest_command.vacuum_set_mode
+    data: {mode: vacuum}
+```
+
+- `vacuum_drive_enable`: sets fan=low, water=min, mode=vacuum (mop retracts) **before** enabling drive
+- `vacuum_drive_disable`: leaves settings at low/min/vacuum (does NOT restore to `input_select` values — suction stays off after driving)
+- Dashboard "Drive" button: `tap_action` → `script.vacuum_drive_enable`, `hold_action` → `script.vacuum_drive_disable`
+- Dreame firmware has no "off" preset for fan/water; `low`/`min` is minimum available
+- `mode: vacuum` causes the mop module to retract — vacuum won't mop during drive
 
 ## Known Harmless Warnings
 
