@@ -6,7 +6,7 @@
 Valetudo is a cloud replacement for vacuum robots enabling local-only operation. It is not a custom firmware.<br/>
 Here's a diagram illustrating the core operation principle:
 
-[<img src="https://github.com/Hypfer/valetudo/raw/master/docs/_pages/general/img/operation_principle.png" height=450>](https://github.com/Hypfer/valetudo/raw/master/docs/_pages/general/img/operation_principle.png)
+[<img src="https://github.com/Hypfer/valetudo/raw/master/docs/pages/general/img/operation_principle.png" height=450>](https://github.com/Hypfer/valetudo/raw/master/docs/pages/general/img/operation_principle.png)
 
 You can think of it as a (quoting a user) "brain parasite" for the vendor firmware.
 
@@ -30,11 +30,13 @@ While being published under the Apache-2.0 license and clearly being FOSS, the g
 is to be understood as that of "Freeware with source available". It is evidently much more than that when it comes to the freedoms provided by true FOSS,
 but it is not the FOSS that only knows "community-driven" you might be used to from corporate co-option and come to expect when you read "FOSS".
 
-For more information, check out the [newcomer guide](https://valetudo.cloud/pages/general/newcomer-guide.html),
-the [getting started guide](https://valetudo.cloud/pages/general/getting-started.html) 
+For more information, check out the [newcomer guide](https://valetudo.cloud/pages/general/newcomer-guide/),
+the [getting started guide](https://valetudo.cloud/pages/general/getting-started/) 
 and also the docs in general at [https://valetudo.cloud](https://valetudo.cloud)
 
-There, you will find a list of [supported robots](https://valetudo.cloud/pages/general/supported-robots.html).
+There, you will find a list of [supported robots](https://valetudo.cloud/pages/general/supported-robots/).
+
+If you're looking for something less opinionated that also achieves "cloud-free modern vacuum robot connected to home assistant", check out [Roborock Local Server](https://github.com/Python-roborock/local_roborock_server) by [Luke Lashley](https://github.com/Lash-L).
 
 ## Screenshots
 
@@ -86,15 +88,19 @@ Therefore, a garden being build with a specific vision does not take away the ab
 >
 > I hang out there in my free time, and, as any human, I'd like to spend my free time pleasantly and surrounded by people that understand and respect me.
 > Contrary to e.g. your workplace, where tolerating is all that is expected of you, understanding cannot be made optional in such a space, as the economics that allow it to exist would otherwise not work out.
+>
+> In layman's terms, this means that you will be banned on _sigh_. (Not a typo)
 
 1. [dust_announce - Very low frequency updates about Valetudo and Rooting](https://t.me/dust_announce)
 
 2. [Valetudo Telegram group](https://t.me/+2MsKV8kILxJhNDAy)
 
-3. [So you've been banned?](https://valetudo.cloud/pages/general/so-youve-been-banned.html)
+3. [So you've been banned?](https://valetudo.cloud/pages/general/so-youve-been-banned/)
 
 Any other mediums such as IRC, Matrix or Reddit are unofficial channels not connected to the project and might contain incorrect or outdated information.
 
+The [Valetudo Premium Support System VPSS](https://github.com/Hypfer/HotlineValetudo) is available via [\+495021 / 9039940](tel:+4950219039940).<br/>
+For privacy reasons, caller ID suppression via prefixing with `#31#` is advised, but you do you.
 
 ## Contributing
 
