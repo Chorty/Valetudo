@@ -12,7 +12,6 @@ module.exports = {
     HighResolutionManualControlCapabilityRouter: require("./HighResolutionManualControlCapabilityRouter"),
     LocateCapabilityRouter: require("./LocateCapabilityRouter"),
     ManualControlCapabilityRouter: require("./ManualControlCapabilityRouter"),
-    MapManagementCapabilityRouter: require("./MapManagementCapabilityRouter"),
     MapResetCapabilityRouter: require("./MapResetCapabilityRouter"),
     MapSegmentEditCapabilityRouter: require("./MapSegmentEditCapabilityRouter"),
     MapSegmentMaterialControlCapabilityRouter: require("./MapSegmentMaterialControlCapabilityRouter"),
@@ -32,10 +31,10 @@ module.exports = {
     SpeakerTestCapabilityRouter: require("./SpeakerTestCapabilityRouter"),
     SpeakerVolumeControlCapabilityRouter: require("./SpeakerVolumeControlCapabilityRouter"),
     StatisticsCapabilityRouter: require("./StatisticsCapabilityRouter"),
-    TextToSpeechCapabilityRouter: require("./TextToSpeechCapabilityRouter"),
-    VideoStreamCapabilityRouter: require("./VideoStreamCapabilityRouter"),
     VoicePackManagementCapabilityRouter: require("./VoicePackManagementCapabilityRouter"),
     WifiConfigurationCapabilityRouter: require("./WifiConfigurationCapabilityRouter"),
     WifiScanCapabilityRouter: require("./WifiScanCapabilityRouter"),
     ZoneCleaningCapabilityRouter: require("./ZoneCleaningCapabilityRouter"),
 };
+
+Object.assign(module.exports, require("./vacuumstreamer"));

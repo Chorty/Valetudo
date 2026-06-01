@@ -19,7 +19,6 @@ module.exports = {
     KeyLockCapability: require("./KeyLockCapability"),
     LocateCapability: require("./LocateCapability"),
     ManualControlCapability: require("./ManualControlCapability"),
-    MapManagementCapability: require("./MapManagementCapability"),
     MapResetCapability: require("./MapResetCapability"),
     MapSegmentEditCapability: require("./MapSegmentEditCapability"),
     MapSegmentMaterialControlCapability: require("./MapSegmentMaterialControlCapability"),
@@ -45,12 +44,12 @@ module.exports = {
     QuirksCapability: require("./QuirksCapability"),
     SpeakerTestCapability: require("./SpeakerTestCapability"),
     SpeakerVolumeControlCapability: require("./SpeakerVolumeControlCapability"),
-    TextToSpeechCapability: require("./TextToSpeechCapability"),
     TotalStatisticsCapability: require("./TotalStatisticsCapability"),
-    VideoStreamCapability: require("./VideoStreamCapability"),
     VoicePackManagementCapability: require("./VoicePackManagementCapability"),
     WaterUsageControlCapability: require("./WaterUsageControlCapability"),
     WifiConfigurationCapability: require("./WifiConfigurationCapability"),
     WifiScanCapability: require("./WifiScanCapability"),
     ZoneCleaningCapability: require("./ZoneCleaningCapability"),
 };
+
+Object.assign(module.exports, require("./vacuumstreamer"));

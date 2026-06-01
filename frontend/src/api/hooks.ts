@@ -148,10 +148,6 @@ import {
     fetchAutoEmptyDockAutoEmptyDuration,
     sendAutoEmptyDockAutoEmptyDuration,
     fetchAutoEmptyDockAutoEmptyDurationControlProperties,
-    fetchMapManagementList,
-    sendMapManagementCommand,
-    exportMapManagementMap,
-    importMapManagementMap,
 } from "./client";
 import {
     PresetSelectionState,
@@ -193,7 +189,6 @@ import {
     VoicePackManagementCommand,
     WifiConfiguration,
     ZoneActionRequestParameters,
-    MapManagementCommand,
 } from "./types";
 import type { MutationFunction } from "@tanstack/query-core";
 
@@ -271,7 +266,6 @@ enum QueryKey {
     MopDockMopDryingTimeControlProperties = "mop_dock_mop_drying_time_control_properties",
     AutoEmptyDockAutoEmptyDurationControl = "auto_empty_dock_auto_empty_duration_control",
     AutoEmptyDockAutoEmptyDurationControlProperties = "auto_empty_dock_auto_empty_duration_control_properties",
-    MapManagement = "map_management_capability",
 }
 
 const useOnCommandError = (capability: Capability | string): ((error: unknown) => void) => {
@@ -1825,41 +1819,6 @@ export const useAutoEmptyDockAutoEmptyDurationControlPropertiesQuery = () => {
         queryFn: fetchAutoEmptyDockAutoEmptyDurationControlProperties,
 
         staleTime: Infinity
-    });
-};
-
-export const useMapManagementListQuery = () => {
-    return useQuery({
-        queryKey: [QueryKey.MapManagement],
-        queryFn: fetchMapManagementList,
-        staleTime: 10_000,
-    });
-};
-
-export const useMapManagementCommandMutation = () => {
-    return useValetudoFetchingMutation({
-        queryKey: [QueryKey.MapManagement],
-        mutationFn: (command: MapManagementCommand) => {
-            return sendMapManagementCommand(command).then(fetchMapManagementList);
-        },
-        onError: useOnCommandError(Capability.MapManagement)
-    });
-};
-
-export const useMapManagementExportMutation = () => {
-    return useMutation({
-        mutationFn: exportMapManagementMap,
-        onError: useOnCommandError(Capability.MapManagement)
-    });
-};
-
-export const useMapManagementImportMutation = () => {
-    return useValetudoFetchingMutation({
-        queryKey: [QueryKey.MapManagement],
-        mutationFn: (params: {file: File, name: string}) => {
-            return importMapManagementMap(params).then(fetchMapManagementList);
-        },
-        onError: useOnCommandError(Capability.MapManagement)
     });
 };
 

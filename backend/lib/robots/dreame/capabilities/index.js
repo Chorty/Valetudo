@@ -28,7 +28,6 @@ module.exports = {
     DreameLineLaserObstacleAvoidanceControlCapability: require("./DreameLineLaserObstacleAvoidanceControlCapability"),
     DreameLocateCapability: require("./DreameLocateCapability"),
     DreameManualControlCapability: require("./DreameManualControlCapability"),
-    DreameMapManagementCapability: require("./DreameMapManagementCapability"),
     DreameMapResetCapability: require("./DreameMapResetCapability"),
     DreameMapSegmentEditCapability: require("./DreameMapSegmentEditCapability"),
     DreameMapSegmentMaterialControlCapability: require("./DreameMapSegmentMaterialControlCapability"),
@@ -55,10 +54,10 @@ module.exports = {
     DreamePetObstacleAvoidanceControlCapability: require("./DreamePetObstacleAvoidanceControlCapability"),
     DreameSpeakerTestCapability: require("./DreameSpeakerTestCapability"),
     DreameSpeakerVolumeControlCapability: require("./DreameSpeakerVolumeControlCapability"),
-    DreameTextToSpeechCapability: require("./DreameTextToSpeechCapability"),
     DreameTotalStatisticsCapability: require("./DreameTotalStatisticsCapability"),
-    DreameVideoStreamCapability: require("./DreameVideoStreamCapability"),
     DreameVoicePackManagementCapability: require("./DreameVoicePackManagementCapability"),
     DreameWaterUsageControlCapability: require("./DreameWaterUsageControlCapability"),
     DreameZoneCleaningCapability: require("./DreameZoneCleaningCapability"),
 };
+
+Object.assign(module.exports, require("./vacuumstreamer"));

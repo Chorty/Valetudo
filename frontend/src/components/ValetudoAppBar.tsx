@@ -22,7 +22,6 @@ import {
     DarkMode as DarkModeIcon,
     Map as MapManagementIcon,
     Home as HomeIcon,
-    Layers as MapBackupIcon,
     Article as LogIcon,
     Menu as MenuIcon,
     ArrowBack as BackIcon,
@@ -41,6 +40,7 @@ import {
 } from "@mui/icons-material";
 import {Link, useLocation} from "react-router-dom";
 import ValetudoEvents from "./ValetudoEvents";
+import {vacuumstreamerMenuItems} from "./VacuumstreamerMenuItems";
 import {Capability} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
@@ -134,17 +134,7 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
             type: "allof"
         }
     },
-    {
-        kind: "MenuEntry",
-        route: "/robot/map_management_capability",
-        title: "Floor Management",
-        menuIcon: MapBackupIcon,
-        menuText: "Floor Management",
-        requiredCapabilities: {
-            capabilities: [Capability.MapManagement],
-            type: "allof"
-        }
-    },
+    ...vacuumstreamerMenuItems,
     {
         kind: "Subheader",
         title: "Options"

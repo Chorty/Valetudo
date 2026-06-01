@@ -71,7 +71,6 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.SpeakerTestCapability.TYPE]: capabilityRouters.SpeakerTestCapabilityRouter,
     [capabilities.VoicePackManagementCapability.TYPE]: capabilityRouters.VoicePackManagementCapabilityRouter,
     [capabilities.MapSegmentEditCapability.TYPE]: capabilityRouters.MapSegmentEditCapabilityRouter,
-    [capabilities.MapManagementCapability.TYPE]: capabilityRouters.MapManagementCapabilityRouter,
     [capabilities.MapResetCapability.TYPE]: capabilityRouters.MapResetCapabilityRouter,
     [capabilities.MapSegmentRenameCapability.TYPE]: capabilityRouters.MapSegmentRenameCapabilityRouter,
     [capabilities.PendingMapChangeHandlingCapability.TYPE]: capabilityRouters.PendingMapChangeHandlingCapabilityRouter,
@@ -102,8 +101,8 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.CleanRouteControlCapability.TYPE]: capabilityRouters.CleanRouteControlCapabilityRouter,
     [capabilities.MopDockMopDryingTimeControlCapability.TYPE]: capabilityRouters.MopDockMopDryingTimeControlCapabilityRouter,
     [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
-    [capabilities.VideoStreamCapability.TYPE]: capabilityRouters.VideoStreamCapabilityRouter,
-    [capabilities.TextToSpeechCapability.TYPE]: capabilityRouters.TextToSpeechCapabilityRouter,
 };
+
+Object.assign(CAPABILITY_TYPE_TO_ROUTER_MAPPING, require("./VacuumstreamerCapabilityRouterMappings"));
 
 module.exports = CapabilitiesRouter;
