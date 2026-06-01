@@ -37,4 +37,4 @@ module.exports = {
     ZoneCleaningCapabilityRouter: require("./ZoneCleaningCapabilityRouter"),
 };
 
-Object.assign(module.exports, require("./vacuumstreamer"));
+Object.assign(module.exports, require("../../../../vacuumstreamer-plugin/backend/capability-routers"));

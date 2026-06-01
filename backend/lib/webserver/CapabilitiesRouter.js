@@ -103,6 +103,6 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
 };
 
-Object.assign(CAPABILITY_TYPE_TO_ROUTER_MAPPING, require("./VacuumstreamerCapabilityRouterMappings"));
+Object.assign(CAPABILITY_TYPE_TO_ROUTER_MAPPING, require("../../../vacuumstreamer-plugin/backend/VacuumstreamerCapabilityRouterMappings"));
 
 module.exports = CapabilitiesRouter;

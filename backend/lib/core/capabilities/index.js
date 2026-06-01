@@ -52,4 +52,4 @@ module.exports = {
     ZoneCleaningCapability: require("./ZoneCleaningCapability"),
 };
 
-Object.assign(module.exports, require("./vacuumstreamer"));
+Object.assign(module.exports, require("../../../../vacuumstreamer-plugin/backend/core-capabilities"));

@@ -60,4 +60,4 @@ module.exports = {
     DreameZoneCleaningCapability: require("./DreameZoneCleaningCapability"),
 };
 
-Object.assign(module.exports, require("./vacuumstreamer"));
+Object.assign(module.exports, require("../../../../../vacuumstreamer-plugin/backend/dreame-capabilities"));

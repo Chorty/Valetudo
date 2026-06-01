@@ -227,7 +227,7 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
             value: entities.state.attributes.DockStatusStateAttribute.VALUE.IDLE
         }));
 
-        require("./VacuumstreamerExtensions")(this);
+        require("../../../../vacuumstreamer-plugin/backend/VacuumstreamerExtensions")(this);
 
     }
 
