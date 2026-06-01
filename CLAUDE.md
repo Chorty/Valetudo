@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a fork of [Valetudo](https://github.com/Hypfer/Valetudo) (v2026.02.0) with added capabilities for the **Dreame L10S Pro Ultra Heat** vacuum:
+This is a fork of [Valetudo](https://github.com/Hypfer/Valetudo) (v2026.05.0) with added capabilities for the **Dreame L10S Pro Ultra Heat** vacuum:
 
 - **VideoStreamCapability** — Manages the video pipeline (vacuumstreamer.so LD_PRELOAD + go2rtc) to expose RTSP/WebRTC/HLS streams from the vacuum's camera
 - **TextToSpeechCapability** — Google Translate TTS engine that speaks through the vacuum's speaker
@@ -20,8 +20,12 @@ This is a fork of [Valetudo](https://github.com/Hypfer/Valetudo) (v2026.02.0) wi
 ## Build & Deploy
 
 ```bash
-# 1. Fix ajv dep conflict (required before every frontend build)
+# 0. After any npm install: fix swagger-ui-express hoisting issue
+#    (upstream package-lock.json dehoists express to backend/node_modules, breaking pkg bundling)
 cd /Users/mattjoslin/Documents/GitHub/Valetudo
+cp -r node_modules/swagger-ui-express backend/node_modules/swagger-ui-express
+
+# 1. Fix ajv dep conflict (required before every frontend build)
 cd node_modules/ajv-keywords && npm install ajv@^8.8.2 --no-save && cd ../..
 
 # 2. Build frontend
