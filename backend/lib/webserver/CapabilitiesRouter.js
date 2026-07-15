@@ -103,6 +103,7 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
 };
 
+// eslint-disable-next-line node/no-unpublished-require
 Object.assign(CAPABILITY_TYPE_TO_ROUTER_MAPPING, require("../../../vacuumstreamer-plugin/backend/VacuumstreamerCapabilityRouterMappings"));
 
 module.exports = CapabilitiesRouter;
