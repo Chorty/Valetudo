@@ -187,6 +187,9 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
                 capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.TILE,
                 capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_VERTICAL,
                 capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_HORIZONTAL,
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET,
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET_LOW,
+                capabilities.DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET_HIGH,
             ]
         }));
 
@@ -233,6 +236,7 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.WATER_HOOKUP_TEST_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_ON_CARPET),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_FIRST),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.FAN_SPEED_ONE_TIME_TURBO),
             ]
         }));
 
