@@ -63,9 +63,14 @@ function loadJoystickPage(fetchImplementation) {
         window
     });
     const html = fs.readFileSync(path.join(__dirname, "../public/joystick.html"), "utf8");
-    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+    const scriptStartTag = "<script>";
+    const scriptEndTag = "</script>";
+    const scriptStart = html.lastIndexOf(scriptStartTag);
+    const scriptEnd = html.indexOf(scriptEndTag, scriptStart);
 
-    vm.runInContext(scripts.at(-1)[1], context);
+    assert.notStrictEqual(scriptStart, -1, "joystick page must contain an inline script");
+    assert.notStrictEqual(scriptEnd, -1, "joystick page inline script must be closed");
+    vm.runInContext(html.slice(scriptStart + scriptStartTag.length, scriptEnd), context);
 
     return {context, document, documentListeners, elements, intervalCallbacks, windowListeners};
 }
