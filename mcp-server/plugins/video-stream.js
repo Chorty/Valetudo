@@ -2,10 +2,8 @@
  * Plugin: video-stream
  *
  * MCP tools for the VideoStreamCapability — start/stop camera stream,
- * get RTSP/WebRTC/HLS URLs, toggle video quality.
+ * and get RTSP/WebRTC/HLS URLs.
  */
-
-import { z } from "zod";
 
 export const name = "video-stream";
 
@@ -14,7 +12,7 @@ export function register(server, client) {
 
     server.tool(
         "stream_get_status",
-        "Get the current video stream status (active, quality, PIDs)",
+        "Get the current video stream status (active and process IDs)",
         {},
         async () => {
             const status = await client.getCapability("VideoStreamCapability");
@@ -58,23 +56,4 @@ export function register(server, client) {
         }
     );
 
-    server.tool(
-        "stream_set_quality",
-        "Set the video stream quality",
-        { quality: z.enum(["high", "low"]).describe("Video quality: 'high' (1080p) or 'low' (480p)") },
-        async ({ quality }) => {
-            await client.putCapability("VideoStreamCapability", { action: "set_quality", value: quality });
-            return { content: [{ type: "text", text: `Video quality set to ${quality}.` }] };
-        }
-    );
-
-    server.tool(
-        "stream_get_quality",
-        "Get the current video stream quality setting",
-        {},
-        async () => {
-            const data = await client.getCapability("VideoStreamCapability", "/quality");
-            return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-        }
-    );
 }

@@ -23,11 +23,17 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { readConfig } from "./lib/config.js";
 import { loadPlugins } from "./lib/plugin-loader.js";
 import { ValetudoClient } from "./lib/valetudo-client.js";
 
-const VALETUDO_HOST = process.env.VALETUDO_HOST || "192.168.1.31";
-const VALETUDO_PORT = process.env.VALETUDO_PORT || "80";
+let config;
+try {
+    config = readConfig();
+} catch (error) {
+    process.stderr.write(`[valetudo-mcp] Configuration error: ${error.message}\n`);
+    process.exit(1);
+}
 
 const server = new McpServer({
     name: "valetudo",
@@ -36,15 +42,18 @@ const server = new McpServer({
 });
 
 const client = new ValetudoClient({
-    host: VALETUDO_HOST,
-    port: parseInt(VALETUDO_PORT, 10),
+    host: config.host,
+    port: config.port,
+    timeoutMs: config.timeoutMs,
+    username: config.username,
+    password: config.password,
 });
 
 // Load all plugins from plugins/ directory
 const plugins = await loadPlugins(server, client);
 
 process.stderr.write(`[valetudo-mcp] Loaded ${plugins.length} plugin(s): ${plugins.map(p => p.name).join(", ")}\n`);
-process.stderr.write(`[valetudo-mcp] Valetudo target: http://${VALETUDO_HOST}:${VALETUDO_PORT}\n`);
+process.stderr.write(`[valetudo-mcp] Valetudo target: http://${config.host}:${config.port}\n`);
 
 // Connect via stdio transport
 const transport = new StdioServerTransport();

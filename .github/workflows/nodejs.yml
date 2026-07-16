@@ -36,6 +36,7 @@
               { 'run': 'npm run build --workspace=frontend' },
               { 'run': 'npm run build --workspace=backend' },
               { 'run': 'npm test --workspace=backend', 'env': { 'CI': true } },
+              { 'run': 'npm test --workspace=valetudo-mcp-server', 'env': { 'CI': true } },
             ],
         },
     },

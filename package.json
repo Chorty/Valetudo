@@ -10,7 +10,8 @@
   "workspaces": [
     "backend",
     "frontend",
-    "docs"
+    "docs",
+    "mcp-server"
   ],
   "scripts": {
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",

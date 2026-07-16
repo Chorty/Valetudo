@@ -14,10 +14,12 @@ export class ValetudoClient {
      * @param {number} [options.port=80] - Valetudo webserver port
      * @param {string} [options.username] - Basic auth username (if enabled)
      * @param {string} [options.password] - Basic auth password (if enabled)
+     * @param {number} [options.timeoutMs=10000] - Per-request timeout in milliseconds
      */
     constructor(options) {
         this.baseUrl = `http://${options.host}:${options.port || 80}`;
         this.auth = null;
+        this.timeoutMs = options.timeoutMs || 10000;
 
         if (options.username && options.password) {
             this.auth = Buffer.from(`${options.username}:${options.password}`).toString("base64");
@@ -43,13 +45,26 @@ export class ValetudoClient {
             headers["Authorization"] = `Basic ${this.auth}`;
         }
 
-        const fetchOptions = { method, headers };
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+        timeout.unref?.();
+        const fetchOptions = { method, headers, signal: controller.signal };
 
         if (options.body && (method === "PUT" || method === "POST")) {
             fetchOptions.body = JSON.stringify(options.body);
         }
 
-        const response = await fetch(url, fetchOptions);
+        let response;
+        try {
+            response = await fetch(url, fetchOptions);
+        } catch (error) {
+            if (error.name === "AbortError") {
+                throw new Error(`Valetudo API request timed out after ${this.timeoutMs}ms`);
+            }
+            throw new Error(`Valetudo API request failed: ${error.message}`);
+        } finally {
+            clearTimeout(timeout);
+        }
 
         if (!response.ok) {
             const text = await response.text();

@@ -10,6 +10,12 @@ npm install
 VALETUDO_HOST=192.168.1.31 node index.js
 ```
 
+The server uses MCP's stdio transport. It does not open a network listener. On
+this installation, the normal topology is to run it on the Mac hosting the MCP
+client and connect directly to the vacuum over the private LAN. Valetudo's
+`blockExternalAccess=true` setting still permits private-LAN and localhost
+clients; it blocks public/external source addresses.
+
 ## Configure in Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -22,7 +28,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "args": ["/absolute/path/to/mcp-server/index.js"],
       "env": {
         "VALETUDO_HOST": "192.168.1.31",
-        "VALETUDO_PORT": "80"
+        "VALETUDO_PORT": "80",
+        "VALETUDO_TIMEOUT_MS": "10000"
       }
     }
   }
@@ -51,21 +58,45 @@ Add to `.vscode/mcp.json` in your workspace:
 
 | Variable | Default | Description |
 |---|---|---|
-| `VALETUDO_HOST` | `192.168.1.31` | Vacuum IP address |
+| `VALETUDO_HOST` | *(required)* | Vacuum IP address or hostname |
 | `VALETUDO_PORT` | `80` | Valetudo webserver port |
+| `VALETUDO_USERNAME` | *(unset)* | Basic Auth username; must be paired with `VALETUDO_PASSWORD` |
+| `VALETUDO_PASSWORD` | *(unset)* | Basic Auth password; must be paired with `VALETUDO_USERNAME` |
+| `VALETUDO_TIMEOUT_MS` | `10000` | Per-request timeout, from 100 through 120000 milliseconds |
+
+Leave `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` unset while Valetudo Basic
+Auth is disabled. If Basic Auth is enabled later, set both variables in the MCP
+client's environment rather than committing them to this repository.
+
+## Optional SSH Tunnel
+
+For an MCP client that cannot reach the vacuum's private LAN directly, create a
+local tunnel through a trusted LAN host:
+
+```bash
+ssh -N -L 8080:192.168.1.31:80 <lan-host>
+```
+
+Then configure the MCP process with `VALETUDO_HOST=127.0.0.1` and
+`VALETUDO_PORT=8080`. The MCP server remains a local stdio process; do not expose
+it as a network service.
 
 ## Included Plugins
 
 | Plugin | Tools | Description |
 |---|---|---|
 | `vacuum-control` | 10 | Start, stop, pause, home, locate, state, fan speed |
-| `video-stream` | 6 | Start/stop camera stream, get URLs, quality toggle |
+| `video-stream` | 4 | Start/stop camera stream, get status and URLs |
 | `tts` | 4 | Speak text, play audio files, stop playback |
 | `consumables` | 6 | Consumable status/reset, statistics, DND |
 | `quirks` | 2 | List/set robot quirks (advanced settings) |
-| `feature-controls` | 18 | Toggle features — carpet mode, obstacle avoidance, child lock, volume, mop dock, water usage |
+| `feature-controls` | 23 | Toggle features — carpet mode, obstacle avoidance, child lock, volume, mop dock, water usage |
 
-**Total: 46 tools**
+**Total: 49 tools**
+
+Video quality selection was removed because it only changed an in-memory label
+and restarted the pipeline; it never changed capture resolution, bitrate, the
+recorder, or go2rtc output.
 
 ## Creating a Plugin
 
