@@ -27,6 +27,9 @@
 
     "postinstall": "patch-package"
   },
+  "dependencies": {
+    "tar-stream": "3.2.0"
+  },
   "devDependencies": {
     "@types/express": "4.17.21",
     "@types/express-serve-static-core": "4.19.8",
