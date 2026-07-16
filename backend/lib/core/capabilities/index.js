@@ -51,3 +51,6 @@ module.exports = {
     WifiScanCapability: require("./WifiScanCapability"),
     ZoneCleaningCapability: require("./ZoneCleaningCapability"),
 };
+
+// eslint-disable-next-line node/no-unpublished-require
+Object.assign(module.exports, require("../../../../vacuumstreamer-plugin/backend/core-capabilities"));

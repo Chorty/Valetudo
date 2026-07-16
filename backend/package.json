@@ -12,8 +12,13 @@
       "../frontend/build",
       "../build_metadata.json",
       "./lib/webserver/middlewares/res/egg_term.html",
+      "./lib/res/valetudo.openapi.schema.json",
       "../node_modules/swagger-ui-dist/swagger-ui.css",
       "./node_modules/swagger-ui-dist/swagger-ui.css"
+    ],
+    "scripts": [
+      "../node_modules/generator-function/index.js",
+      "../node_modules/async-function/index.js"
     ]
   },
   "scripts": {
@@ -23,11 +28,11 @@
     "lint_fix": "eslint -c .automated.eslintrc.json . --fix",
     "lint_pedantic": "eslint -c .pedantic.eslintrc.json .",
     "ts-check": "tsc --noEmit",
-    "test": "node --test \"test/**/*_test.js\"",
+    "test": "node --test \"test/**/*_test.js\" \"../frontend/test/**/*_test.js\" \"../vacuumstreamer-plugin/test/**/*_test.js\"",
     "prepare_commit": "npm run lint_fix && npm run ts-check && npm run test",
     "generate_code": "npm run generate_midea_protobufs",
     "generate_midea_protobufs": "pbjs --es5 ./lib/robots/midea/generated/midea_protobufs.js ../assets/protobuf/midea.proto",
-    "pre_build": "npm run generate_code && node ../util/generate_build_metadata.js",
+    "pre_build": "node ../util/patch_pkg_module_sync.js && npm run generate_code && node ../util/generate_build_metadata.js",
     "build": "npm run build_armv7 && npm run build_aarch64 && npm run build_armv7_lowmem",
     "build_armv7": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-armv7 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=42\" . --output ../build/armv7/valetudo",
     "build_aarch64": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-arm64 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=64\" . --output ../build/aarch64/valetudo",
@@ -43,7 +48,7 @@
     "bonjour-service": "1.3.0",
     "compression": "1.8.1",
     "crc": "4.3.2",
-    "express": "5.2.1",
+    "express": "4.21.1",
     "express-basic-auth": "1.2.1",
     "express-dynamic-middleware": "1.0.0",
     "express-rate-limit": "8.2.1",
@@ -57,12 +62,13 @@
     "openapi-validator-middleware": "3.2.6",
     "semaphore": "1.1.0",
     "swagger-ui-express": "5.0.1",
+    "tar-stream": "3.2.0",
     "uuid": "10.0.0",
     "zoo-ids": "2.0.7"
   },
   "devDependencies": {
     "@types/compression": "1.8.1",
-    "@types/express": "5.0.6",
+    "@types/express": "4.17.21",
     "@types/express-list-endpoints": "6.0.3",
     "@types/jstoxml": "5.0.0",
     "@types/node": "22.17.2",

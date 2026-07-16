@@ -9,13 +9,20 @@
           'strategy': { 'matrix': { 'node-version': ['22.x'] } },
           'steps':
             [
-              { 'uses': 'actions/checkout@v6' },
+              {
+                'uses': 'actions/checkout@v6',
+                'with': { 'submodules': 'recursive' },
+              },
               {
                 'name': 'Use Node.js ${{ matrix.node-version }}',
                 'uses': 'actions/setup-node@v6',
                 'with': { 'node-version': '${{ matrix.node-version }}' },
               },
               { 'run': 'npm ci' },
+              {
+                'name': 'Smoke-test backend module loading',
+                'run': "node -e \"require('./backend/lib/webserver/WebServer')\"",
+              },
               {
                 'name': 'Generate OpenAPI Docs',
                 'run': 'npm run build_openapi_schema',
@@ -29,6 +36,7 @@
               { 'run': 'npm run build --workspace=frontend' },
               { 'run': 'npm run build --workspace=backend' },
               { 'run': 'npm test --workspace=backend', 'env': { 'CI': true } },
+              { 'run': 'npm test --workspace=valetudo-mcp-server', 'env': { 'CI': true } },
             ],
         },
     },

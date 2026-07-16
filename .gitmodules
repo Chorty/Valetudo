@@ -1,0 +1,3 @@
+[submodule "vacuumstreamer-plugin"]
+	path = vacuumstreamer-plugin
+	url = https://github.com/Chorty/valetudo-vacuumstreamer-plugin

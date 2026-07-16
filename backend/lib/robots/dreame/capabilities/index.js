@@ -59,3 +59,6 @@ module.exports = {
     DreameWaterUsageControlCapability: require("./DreameWaterUsageControlCapability"),
     DreameZoneCleaningCapability: require("./DreameZoneCleaningCapability"),
 };
+
+// eslint-disable-next-line node/no-unpublished-require
+Object.assign(module.exports, require("../../../../../vacuumstreamer-plugin/backend/dreame-capabilities"));

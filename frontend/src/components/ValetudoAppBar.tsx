@@ -40,6 +40,7 @@ import {
 } from "@mui/icons-material";
 import {Link, useLocation} from "react-router-dom";
 import ValetudoEvents from "./ValetudoEvents";
+import {vacuumstreamerMenuItems} from "./VacuumstreamerMenuItems";
 import {Capability} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
@@ -133,6 +134,7 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
             type: "allof"
         }
     },
+    ...vacuumstreamerMenuItems,
     {
         kind: "Subheader",
         title: "Options"

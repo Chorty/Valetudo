@@ -10,7 +10,8 @@
   "workspaces": [
     "backend",
     "frontend",
-    "docs"
+    "docs",
+    "mcp-server"
   ],
   "scripts": {
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
@@ -27,7 +28,12 @@
 
     "postinstall": "patch-package"
   },
+  "dependencies": {
+    "tar-stream": "3.2.0"
+  },
   "devDependencies": {
+    "@types/express": "4.17.21",
+    "@types/express-serve-static-core": "4.19.8",
     "@typescript-eslint/eslint-plugin": "6.15.0",
     "@typescript-eslint/experimental-utils": "5.62.0",
     "@typescript-eslint/parser": "6.15.0",
@@ -40,6 +46,7 @@
     "eslint-plugin-regexp": "2.6.0",
     "eslint-plugin-sort-keys-fix": "1.1.2",
     "eslint-plugin-sort-requires": "git+https://npm@github.com/Hypfer/eslint-plugin-sort-requires.git#2.1.1",
+    "express": "4.21.1",
     "patch-package": "^8.0.1",
     "pbjs": "0.0.14",
     "swagger-jsdoc": "git+https://npm@github.com/Hypfer/swagger-jsdoc.git#7.0.0-rc.6-noyaml-monorepo-fix",
