@@ -20,6 +20,10 @@
               },
               { 'run': 'npm ci' },
               {
+                'name': 'Smoke-test backend module loading',
+                'run': "node -e \"require('./backend/lib/webserver/WebServer')\"",
+              },
+              {
                 'name': 'Generate OpenAPI Docs',
                 'run': 'npm run build_openapi_schema',
               },
