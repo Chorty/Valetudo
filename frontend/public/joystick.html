@@ -193,24 +193,38 @@
   let angle = 0;
   let autoDisableTimer = null;
   let sendInterval = null;
+  let interactionVersion = 0;
 
   // ── API helpers ──────────────────────────────────────────────────────────────
 
   async function api(body) {
-    try {
-      await fetch(API, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-    } catch (_) {}
+    const response = await fetch(API, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status})`);
+    }
+  }
+
+  function showControlError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    statusEl.textContent = `Control error: ${message}`;
   }
 
   async function setEnabled(val) {
-    if (val === enabled) return;
-    await api({ action: val ? 'enable' : 'disable' });
-    enabled = val;
-    updateUI();
+    if (val === enabled) return true;
+    interactionVersion += 1;
+    try {
+      await api({ action: val ? 'enable' : 'disable' });
+      enabled = val;
+      updateUI();
+      return true;
+    } catch (error) {
+      showControlError(error);
+      return false;
+    }
   }
 
   // ── UI state ─────────────────────────────────────────────────────────────────
@@ -274,7 +288,7 @@
   async function onStart(e) {
     e.preventDefault();
     clearTimeout(autoDisableTimer);
-    if (!enabled) await setEnabled(true);
+    if (!enabled && !await setEnabled(true)) return;
     dragging = true;
     stick.classList.add('dragging');
     onMove(e);
@@ -295,17 +309,53 @@
     resetStick();
     updateUI();
     // Send a stop command immediately
-    await api({ action: 'move', vector: { velocity: 0, angle: 0 } });
+    try {
+      await api({ action: 'move', vector: { velocity: 0, angle: 0 } });
+    } catch (error) {
+      showControlError(error);
+      await setEnabled(false);
+      return;
+    }
     // Auto-disable after 4s idle (Valetudo keep-alive will stop it sooner anyway)
     clearTimeout(autoDisableTimer);
     autoDisableTimer = setTimeout(() => setEnabled(false), 4000);
+  }
+
+  let emergencyStopPromise = null;
+  function emergencyStop() {
+    if (emergencyStopPromise) return emergencyStopPromise;
+
+    emergencyStopPromise = (async () => {
+      clearTimeout(autoDisableTimer);
+      dragging = false;
+      stick.classList.remove('dragging');
+      resetStick();
+      updateUI();
+
+      let stopError = null;
+      try {
+        await api({ action: 'move', vector: { velocity: 0, angle: 0 } });
+      } catch (error) {
+        stopError = error;
+      }
+
+      await setEnabled(false);
+      if (stopError) showControlError(stopError);
+    })().finally(() => {
+      emergencyStopPromise = null;
+    });
+
+    return emergencyStopPromise;
   }
 
   // ── Continuous send loop ──────────────────────────────────────────────────────
 
   setInterval(() => {
     if (enabled && dragging) {
-      api({ action: 'move', vector: { velocity, angle } });
+      api({ action: 'move', vector: { velocity, angle } }).catch(error => {
+        showControlError(error);
+        emergencyStop();
+      });
     }
   }, SEND_HZ);
 
@@ -317,27 +367,36 @@
   document.addEventListener('touchmove',  onMove, { passive: false });
   document.addEventListener('mouseup',    onEnd);
   document.addEventListener('touchend',   onEnd);
-
-  toggleBtn.addEventListener('click', () => setEnabled(!enabled));
-  stopBtn.addEventListener('click', async () => {
-    dragging = false;
-    stick.classList.remove('dragging');
-    resetStick();
-    await api({ action: 'move', vector: { velocity: 0, angle: 0 } });
-    await setEnabled(false);
-    clearTimeout(autoDisableTimer);
-    updateUI();
+  document.addEventListener('touchcancel', emergencyStop);
+  document.addEventListener('pointercancel', emergencyStop);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) emergencyStop();
   });
+  window.addEventListener('blur', emergencyStop);
+
+  toggleBtn.addEventListener('click', () => {
+    if (enabled) {
+      emergencyStop();
+    } else {
+      setEnabled(true);
+    }
+  });
+  stopBtn.addEventListener('click', emergencyStop);
 
   // ── Initial fetch ─────────────────────────────────────────────────────────────
 
   (async () => {
+    const requestVersion = interactionVersion;
     try {
       const r = await fetch(API);
+      if (!r.ok) throw new Error(`Request failed (${r.status})`);
       const data = await r.json();
+      if (requestVersion !== interactionVersion) return;
       enabled = data.enabled;
       updateUI();
-    } catch (_) {}
+    } catch (error) {
+      showControlError(error);
+    }
   })();
 </script>
 </body>
