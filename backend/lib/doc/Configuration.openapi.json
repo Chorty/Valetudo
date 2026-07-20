@@ -283,7 +283,8 @@
                 "ObstacleAvoidanceControlCapability",
                 "PetObstacleAvoidanceControlCapability",
                 "CarpetModeControlCapability",
-                "CarpetSensorModeControlCapability"
+                "CarpetSensorModeControlCapability",
+                "QuirksCapability"
               ]
             }
           }

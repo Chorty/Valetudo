@@ -233,6 +233,10 @@ A quirk is a vendor, robot or firmware-specific tunable that doesn't fit into Va
 Think of quirks as some kind of convenience playground testing section.
 Usually, they will be tunables that you change once and then likely never touch again.
 
+`QuirksCapability` may be enabled as an optional MQTT capability. Individual quirks that are unsafe for unattended
+automation are intentionally omitted from MQTT and Home Assistant discovery even when the capability is enabled.
+Broker authentication and least-privilege topic ACLs should still be used for every robot command topic.
+
 ## SpeakerTestCapability
 
 This capability enables you to play a test sound at the configured volume level.

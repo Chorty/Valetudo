@@ -28,6 +28,9 @@ class QuirksCapabilityMqttHandle extends CapabilityMqttHandle {
         this.quirksCachePromise = null;
 
         for (const quirk of this.capability.quirks ?? []) {
+            if (quirk.mqttExposed === false) {
+                continue;
+            }
             if (isTriggerQuirk(quirk)) {
                 this.registerTriggerQuirk(quirk);
             } else if (isToggleQuirk(quirk)) {

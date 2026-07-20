@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const ComponentType = require("../../../lib/mqtt/homeassistant/ComponentType");
+const MideaQuirkFactory = require("../../../lib/robots/midea/MideaQuirkFactory");
 const MopDockCleanManualTriggerCapability = require("../../../lib/core/capabilities/MopDockCleanManualTriggerCapability");
 const MopDockCleanManualTriggerCapabilityMqttHandle = require("../../../lib/mqtt/capabilities/MopDockCleanManualTriggerCapabilityMqttHandle");
 const MopDockDryManualTriggerCapability = require("../../../lib/core/capabilities/MopDockDryManualTriggerCapability");
@@ -36,11 +37,12 @@ function child(handle, topicName) {
     return handle.children.find(item => item.topicName === topicName);
 }
 
-function createQuirk(id, title, options, value) {
+function createQuirk(id, title, options, value, mqttExposed = true) {
     return new Quirk({
         id: id,
         title: title,
         description: `${title} description`,
+        mqttExposed: mqttExposed,
         options: options,
         getter: async () => value,
         setter: async () => undefined
@@ -66,6 +68,36 @@ test("quirks handle maps toggles, choices, and triggers to suitable Home Assista
     assert.equal(child(handle, "trigger-id").hassComponents[0].componentType, ComponentType.BUTTON);
     assert.deepEqual(child(handle, "select-id").hassComponents[0].getAutoconf().options, ["low", "medium", "high"]);
     assert.equal(QuirksCapabilityMqttHandle.OPTIONAL, true);
+});
+
+test("quirks handle does not expose quirks blocked from MQTT", async () => {
+    const safeQuirk = createQuirk("safe-id", "Safe Quirk", ["on", "off"], "off");
+    const blockedQuirk = createQuirk("blocked-id", "Blocked Quirk", ["on", "off"], "on", false);
+    const capability = {
+        quirks: [safeQuirk, blockedQuirk],
+        getType: () => QuirksCapability.TYPE,
+        getQuirks: async () => [],
+        setQuirkValue: async () => undefined
+    };
+    const handle = createHandle(QuirksCapabilityMqttHandle, capability);
+
+    assert.ok(child(handle, "safe-id"));
+    assert.equal(child(handle, "blocked-id"), undefined);
+    assert.equal(Object.hasOwn(await blockedQuirk.serialize(), "mqttExposed"), false);
+});
+
+test("the Midea cliff-sensor quirk is blocked from MQTT", () => {
+    const factory = new MideaQuirkFactory({robot: {}});
+    const quirk = factory.getQuirk(MideaQuirkFactory.KNOWN_QUIRKS.CLIFF_SENSORS);
+
+    assert.equal(quirk.mqttExposed, false);
+});
+
+test("configuration accepts quirks as an optional MQTT capability", () => {
+    const configSchema = require("../../../lib/doc/Configuration.openapi.json");
+    const allowed = configSchema.components.schemas.MqttConfigDTO.properties.optionalExposedCapabilities.items.enum;
+
+    assert.ok(allowed.includes(QuirksCapability.TYPE));
 });
 
 test("quirks handle batches reads and invalidates its cache after a change", async () => {
