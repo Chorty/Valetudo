@@ -19,6 +19,7 @@ class Quirk {
      * @param {Array<string>} options.options
      * @param {string} options.title
      * @param {string} options.description
+     * @param {boolean} [options.mqttExposed]
      * @param {() => Promise<string>} options.getter
      * @param {(value: string) => Promise<void>} options.setter
      */
@@ -27,6 +28,7 @@ class Quirk {
         this.options = options.options;
         this.title = options.title;
         this.description = options.description;
+        this.mqttExposed = options.mqttExposed ?? true;
         this.getter = options.getter;
         this.setter = options.setter;
     }

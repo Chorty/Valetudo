@@ -23,7 +23,16 @@ const CAPABILITY_TYPE_TO_HANDLE_MAPPING = {
     [capabilities.PetObstacleAvoidanceControlCapability.TYPE]: capabilityHandles.PetObstacleAvoidanceControlCapabilityMqttHandle,
     [capabilities.CarpetModeControlCapability.TYPE]: capabilityHandles.CarpetModeControlCapabilityMqttHandle,
     [capabilities.CarpetSensorModeControlCapability.TYPE]: capabilityHandles.CarpetSensorModeControlCapabilityMqttHandle,
+    [capabilities.MopDockCleanManualTriggerCapability.TYPE]: capabilityHandles.MopDockCleanManualTriggerCapabilityMqttHandle,
+    [capabilities.MopDockDryManualTriggerCapability.TYPE]: capabilityHandles.MopDockDryManualTriggerCapabilityMqttHandle,
+    [capabilities.QuirksCapability.TYPE]: capabilityHandles.QuirksCapabilityMqttHandle,
 };
+
+Object.assign(
+    CAPABILITY_TYPE_TO_HANDLE_MAPPING,
+    // eslint-disable-next-line node/no-unpublished-require
+    require("../../../../vacuumstreamer-plugin/backend/VacuumstreamerMqttHandleMappings")
+);
 
 const STATUS_ATTR_TO_HANDLE_MAPPING = [
     {

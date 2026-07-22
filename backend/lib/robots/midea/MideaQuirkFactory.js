@@ -241,6 +241,7 @@ class MideaQuirkFactory {
                     id: id,
                     title: "Cliff Sensors",
                     description: "! DANGEROUS ! - This allows you to disable the cliff sensors. The robot WILL fall down stairs and possibly destroy itself if you do so.",
+                    mqttExposed: false,
                     options: ["on", "off"],
                     getter: async () => {
                         const response = await this.robot.sendCommand(new MSmartPacket({
