@@ -21,12 +21,15 @@ Never commit SSH keys, passwords, Home Assistant tokens, or MCP credentials. Cre
 
 ## Current Deployed Baseline
 
-- Valetudo merge commit: `52877d808d5b2cdbe48e62b167580e615bd1fb4b`
-- Active binary SHA-256: `e7adc3e340958fed0189a5c03096443e88c7c471bba7e2b28556a421c6d160a0`
-- Latest verified backup: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer/robot_backup_20260716_213135`
-- Backup checksum: `7c9f135d72c2db4a0a0b6942df058b4d50fd2e13d2c918d11bad8ae5d22b3af2`
+- Valetudo PR: `Chorty/Valetudo#6`, merged with a merge commit
+- Valetudo merge commit: `1c0f5b9fdb6de5492f6f6e9acb1df006c12674ff`
+- GitHub Actions build: run `29884181662`, whose `headSha` matched the merge commit
+- Active ARM64 binary SHA-256: `95fe4ea4f6023acaef191a7a3a732efbcc70ca7254f3a5cf4d0d5466c775a0b9`
+- Latest verified backup: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234/robot_backup_20260721_215739`
+- Backup archive checksum: `65b3ca8e377428602825cb48bde3b9ab91adafe39e907fff9f9e6184c5832007`
+- Retained on-device rollback binary: `/data/valetudo.predeploy_1c0f5b9f`
 
-The deployed baseline passed root/API health checks, map management, joystick fail-safes, MCP capability checks, video start/stop and HLS playback, locate, clean-stop, and watchdog-stability checks. Keep the backup and the previous on-device binary until a newer deployment passes the same acceptance gate.
+The deployed baseline passed root/API health checks, MQTT/Home Assistant availability, MCP capability checks, map management, joystick zero-motion and disable fail-safes, video start/stop and HLS playback, and watchdog-stability checks. The robot finished idle, docked, error-free, and at 100% battery. Keep the backup and the previous on-device binary until a newer deployment passes the same acceptance gate.
 
 ## Safe Build and Deployment
 
