@@ -154,7 +154,8 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
                 Capability.MapSegmentEdit,
                 Capability.MapSegmentRename,
 
-                Capability.CombinedVirtualRestrictions
+                Capability.CombinedVirtualRestrictions,
+                Capability.MapAnnotations
             ],
             type: "anyof"
         }
@@ -169,6 +170,12 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         kind: "MenuSubEntry",
         route: "/options/map_management/virtual_restrictions",
         title: "Virtual Restriction Management",
+        parentRoute: "/options/map_management"
+    },
+    {
+        kind: "MenuSubEntry",
+        route: "/options/map_management/annotations",
+        title: "Map Annotations",
         parentRoute: "/options/map_management"
     },
     {
