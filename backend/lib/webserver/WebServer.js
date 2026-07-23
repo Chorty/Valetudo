@@ -145,7 +145,17 @@ class WebServer {
 
         this.app.use("/_ssdp/", new SSDPRouter({config: this.config, robot: this.robot, valetudoHelper: this.valetudoHelper}).getRouter());
 
-        this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
+        const frontendBuildPath = path.join(__dirname, "../../..", "frontend/build");
+        const frontendStaticPath = path.join(frontendBuildPath, "static");
+        this.app.use("/static/", Middlewares.PrecompressedStaticMiddleware({root: frontendStaticPath}));
+        this.app.use("/static/", express.static(frontendStaticPath, {
+            immutable: true,
+            maxAge: "1y"
+        }));
+        this.app.use(express.static(frontendBuildPath, {
+            etag: true,
+            maxAge: 0
+        }));
 
 
         this.robot.initModelSpecificWebserverRoutes(this.app);

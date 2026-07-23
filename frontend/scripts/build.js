@@ -4,6 +4,8 @@ process.env.GENERATE_SOURCEMAP = 'false';
 
 const chalk = require('react-dev-utils/chalk');
 const fs = require('fs');
+const path = require('path');
+const zlib = require('zlib');
 const webpack = require('webpack');
 const configFactory = require('../config/webpack.config');
 const paths = require('../config/paths');
@@ -16,6 +18,10 @@ const printFileSizesAfterBuild = FileSizeReporter.printFileSizesAfterBuild;
 
 const WARN_AFTER_BUNDLE_GZIP_SIZE = 512 * 1024;
 const WARN_AFTER_CHUNK_GZIP_SIZE = 1024 * 1024;
+const MAX_MAIN_GZIP_SIZE = 420 * 1024;
+const MAX_ASYNC_CHUNK_GZIP_SIZE = 512 * 1024;
+const PRECOMPRESS_MINIMUM_SIZE = 1024;
+const PRECOMPRESS_EXTENSIONS = new Set(['.css', '.js', '.json', '.svg']);
 
 if (!checkRequiredFiles([paths.appHtml, paths.appIndexJs])) {
     process.exit(1);
@@ -38,12 +44,16 @@ measureFileSizesBeforeBuild(paths.appBuild)
     })
     .then(
         ({ stats, previousFileSizes, warnings }) => {
+            const compressedAssets = precompressBuildAssets(paths.appBuild);
+            enforceBundleBudgets(paths.appBuild);
+
             if (warnings.length) {
                 console.log(chalk.yellow('Compiled with warnings.\n'));
                 console.log(warnings.join('\n\n'));
             } else {
                 console.log(chalk.green('Compiled successfully.\n'));
             }
+            console.log(chalk.green(`Created ${compressedAssets} precompressed asset variants.\n`));
 
             console.log('File sizes after gzip:\n');
             printFileSizesAfterBuild(
@@ -104,6 +114,55 @@ function build(previousFileSizes) {
             return resolve(resolveArgs);
         });
     });
+}
+
+function precompressBuildAssets(buildDirectory) {
+    let count = 0;
+    for (const filePath of walkFiles(buildDirectory)) {
+        const relative = path.relative(buildDirectory, filePath);
+        const isHashedStaticAsset = relative.startsWith(`static${path.sep}`) &&
+            /\.[a-f0-9]{8,}(?:\.chunk)?\.(?:css|js|json|svg)$/.test(path.basename(filePath));
+        if (!isHashedStaticAsset || !PRECOMPRESS_EXTENSIONS.has(path.extname(filePath)) || fs.statSync(filePath).size < PRECOMPRESS_MINIMUM_SIZE) {
+            continue;
+        }
+        const contents = fs.readFileSync(filePath);
+        fs.writeFileSync(`${filePath}.br`, zlib.brotliCompressSync(contents, {
+            params: {[zlib.constants.BROTLI_PARAM_QUALITY]: 9}
+        }));
+        fs.writeFileSync(`${filePath}.gz`, zlib.gzipSync(contents, {level: 9}));
+        count += 2;
+    }
+    return count;
+}
+
+function enforceBundleBudgets(buildDirectory) {
+    const javascriptDirectory = path.join(buildDirectory, 'static', 'js');
+    const files = fs.readdirSync(javascriptDirectory);
+    const main = files.find(file => /^main\.[a-f0-9]+\.js\.gz$/.test(file));
+    if (!main) {
+        throw new Error('Unable to find the compressed main JavaScript bundle for budget validation.');
+    }
+    const mainSize = fs.statSync(path.join(javascriptDirectory, main)).size;
+    if (mainSize > MAX_MAIN_GZIP_SIZE) {
+        throw new Error(`Main bundle budget exceeded: ${formatBytes(mainSize)} > ${formatBytes(MAX_MAIN_GZIP_SIZE)}`);
+    }
+    for (const file of files.filter(file => file.endsWith('.chunk.js.gz'))) {
+        const size = fs.statSync(path.join(javascriptDirectory, file)).size;
+        if (size > MAX_ASYNC_CHUNK_GZIP_SIZE) {
+            throw new Error(`Async chunk budget exceeded for ${file}: ${formatBytes(size)} > ${formatBytes(MAX_ASYNC_CHUNK_GZIP_SIZE)}`);
+        }
+    }
+}
+
+function walkFiles(directory) {
+    return fs.readdirSync(directory, {withFileTypes: true}).flatMap(entry => {
+        const entryPath = path.join(directory, entry.name);
+        return entry.isDirectory() ? walkFiles(entryPath) : [entryPath];
+    });
+}
+
+function formatBytes(bytes) {
+    return `${(bytes / 1024).toFixed(2)} KiB`;
 }
 
 function copyPublicFolder() {

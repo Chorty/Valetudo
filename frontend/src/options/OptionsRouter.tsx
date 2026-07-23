@@ -3,8 +3,9 @@ import {Navigate, Routes} from "react-router-dom";
 import ValetudoOptions from "./ValetudoOptions";
 import React from "react";
 import ConnectivityOptionsRouter from "./ConnectivityOptionsRouter";
-import MapManagementOptionsRouter from "./MapManagementOptionsRouter";
 import RobotOptionsRouter from "./RobotOptionsRouter";
+
+const MapManagementOptionsRouter = React.lazy(() => import("./MapManagementOptionsRouter"));
 
 const OptionsRouter = (): React.ReactElement => {
 
