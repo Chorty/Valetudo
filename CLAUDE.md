@@ -55,6 +55,20 @@ Before deployment:
 
 Do not replace `/data/valetudo` directly without a fresh backup, candidate checksum verification, and rollback path.
 
+## GUI Resource Profiling
+
+Run the dependency-free profiler on this Mac; it only reads fixed process counters over SSH and sends bounded HTTP requests to Valetudo:
+
+```bash
+npm run profile_vacuum_resources -- --label docked-video-off --duration 600
+```
+
+Defaults are SSH host `vacuum`, HTTP base `http://192.168.1.31`, a five-second interval, a ten-minute duration, and output below `~/Documents/ValetudoProfiles`. Override them with `--ssh-host`, `--http-base`, `--interval`, `--duration`, `--timeout`, and `--output`. The HTTP URL must not contain credentials.
+
+Each timestamped run contains mode-`0600` `samples.csv`, `summary.json`, and `metadata.json`. The summary reports HTTP failures and latency percentiles, process CPU/RSS peaks, load, and minimum available memory. The profiler never reads process arguments, environment variables, authorization headers, request queries, bodies, or robot logs.
+
+For comparisons, capture ten minutes each while docked with video off/on and during two user-started normal cleanings with video off/on. Never start cleaning or send movement commands for a benchmark. Compare like-for-like scenarios and roll back a candidate if HTTP fails, available memory falls below 150 MB, AVA or the watchdog reports errors, or latency/CPU/RSS regresses by more than 20%.
+
 ## Plugin Capabilities
 
 | Capability | Purpose |
