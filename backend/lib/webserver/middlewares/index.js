@@ -4,5 +4,6 @@ module.exports = {
     ExternalAccessCheckMiddleware: require("./ExternalAccessCheckMiddleware"),
     PrecompressedStaticMiddleware: require("./PrecompressedStaticMiddleware"),
     ServerMiddleware: require("./ServerMiddleware"),
+    SlowRequestMiddleware: require("./SlowRequestMiddleware"),
     VersionMiddleware: require("./VersionMiddleware")
 };

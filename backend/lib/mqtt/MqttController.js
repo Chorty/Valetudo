@@ -9,6 +9,7 @@ const mqtt = require("mqtt");
 const MqttCommonAttributes = require("./MqttCommonAttributes");
 const RobotMqttHandle = require("./handles/RobotMqttHandle");
 const Semaphore = require("semaphore");
+const SingleFlightRefresh = require("./SingleFlightRefresh");
 const Tools = require("../utils/Tools");
 const { CAPABILITY_TYPE_TO_HANDLE_MAPPING } = require("./handles/HandleMappings");
 
@@ -43,6 +44,12 @@ class MqttController {
         this.client = null;
         this.refreshInterval = 30 * 1000;
         this.refreshIntervalID = null;
+        this.autoRefresh = new SingleFlightRefresh({
+            logger: Logger,
+            refresh: async () => {
+                await this.robotHandle.refresh();
+            }
+        });
 
         /** @type {Array<import("./handles/NodeMqttHandle")>} */
         this.nodes = [];
@@ -256,19 +263,20 @@ class MqttController {
     startAutorefreshService() {
         if (this.refreshIntervalID === null) {
             this.refreshIntervalID = setInterval(() => {
-                if (!this.robotHandle) {
-                    return;
-                }
-
-                if (this.state !== HomieCommonAttributes.STATE.READY) {
-                    return;
-                }
-
-                this.robotHandle.refresh().catch((reason => {
-                    Logger.error("Failed auto refresh:", reason);
-                }));
+                this.runAutorefresh();
             }, this.refreshInterval);
         }
+    }
+
+    /**
+     * @private
+     * @return {Promise<boolean>}
+     */
+    async runAutorefresh() {
+        if (!this.robotHandle || this.state !== HomieCommonAttributes.STATE.READY) {
+            return false;
+        }
+        return this.autoRefresh.run();
     }
 
     /**
@@ -370,9 +378,7 @@ class MqttController {
                     this.setState(HomieCommonAttributes.STATE.READY).then(() => {
                         this.onValetudoEventsUpdated(); // Publish the initial state
 
-                        this.robotHandle.refresh().catch(err => {
-                            Logger.error("Error during MQTT handle refresh", err);
-                        });
+                        this.runAutorefresh();
                     }).catch(e => {
                         Logger.error("Error on MQTT reconfigure state change", e);
                     });

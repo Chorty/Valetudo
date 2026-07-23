@@ -69,6 +69,8 @@ Each timestamped run contains mode-`0600` `samples.csv`, `summary.json`, and `me
 
 For comparisons, capture ten minutes each while docked with video off/on and during two user-started normal cleanings with video off/on. Never start cleaning or send movement commands for a benchmark. Compare like-for-like scenarios and roll back a candidate if HTTP fails, available memory falls below 150 MB, AVA or the watchdog reports errors, or latency/CPU/RSS regresses by more than 20%.
 
+Set `VALETUDO_SLOW_REQUEST_MS=500` only during an acceptance deployment to log privacy-safe warnings for HTTP responses taking at least 500 ms. The variable defaults to `0` (disabled) and accepts `0` or an integer from 100 through 60000. Telemetry excludes SSE and log-content routes and never logs queries, bodies, headers, client addresses, or credentials.
+
 ## Plugin Capabilities
 
 | Capability | Purpose |

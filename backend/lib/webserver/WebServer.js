@@ -66,6 +66,7 @@ class WebServer {
         this.app.use(Middlewares.CSPMiddleware);
         this.app.use(Middlewares.VersionMiddleware);
         this.app.use(Middlewares.ServerMiddleware);
+        this.app.use(Middlewares.SlowRequestMiddleware());
 
         if (this.webserverConfig.blockExternalAccess) {
             this.app.use(Middlewares.ExternalAccessCheckMiddleware);
