@@ -1,6 +1,6 @@
 # Project Memory Index
 
-Last updated: 2026-07-21
+Last updated: 2026-07-23
 
 ## Repositories
 
@@ -14,23 +14,26 @@ The native companion's former untracked backups, extracted device data, and buil
 
 ## Deployed Baseline
 
-- Valetudo PR: `Chorty/Valetudo#6`, merged with a merge commit
-- Valetudo merge SHA: `1c0f5b9fdb6de5492f6f6e9acb1df006c12674ff`
-- Exact-SHA GitHub Actions build: run `29884181662`
-- Active ARM64 binary SHA-256: `95fe4ea4f6023acaef191a7a3a732efbcc70ca7254f3a5cf4d0d5466c775a0b9`
-- Verified local backup: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234/robot_backup_20260721_215739`
-- Backup SHA-256: `65b3ca8e377428602825cb48bde3b9ab91adafe39e907fff9f9e6184c5832007`
-- On-device rollback binary: `/data/valetudo.predeploy_1c0f5b9f`
+- GUI resource/observability PR: `Chorty/Valetudo#7`, merge SHA `6a8829ea02257bd8d3314d0d9052655e21f8056f`
+- Static MIME hotfix PR: `Chorty/Valetudo#8`, final merge SHA `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
+- Exact-SHA GitHub Actions build: run `30062082320`
+- Active ARM64 binary SHA-256: `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`
+- Verified local backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321`
+- Backup archive SHA-256: `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`
+- Immediate on-device rollback binary: `/data/valetudo.predeploy_f1e5a157`
+- Earlier on-device rollback binary: `/data/valetudo.predeploy_6a8829ea`
 - Robot access: `ssh vacuum` using the private key configured outside Git
 
 ## Verified Integration State
 
 - Filesystem protections and joystick fail-safes are fixed and deployed.
-- Root/API HTTP, MQTT/Home Assistant, MCP, map management, joystick zero-motion/disable, video start/stop with HLS playback, and watchdog stability passed final acceptance testing.
+- Root/API HTTP, static Brotli/MIME/cache headers, MQTT connectivity, MCP read-only tools, map management, state SSE, joystick zero-motion/disable, AVA priority, and initial watchdog stability have passed for the `f1e5a157` deployment.
+- The corrected 120-sample docked/video-on profile is in `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-24T03-34-33-541Z_after-f1e5a157-docked-video-on-maploader-fix_AcWD9N`. It had zero HTTP failures, 484036 KB minimum available memory, and a 232.6 ms root p95. That misses the formal 150 ms docked target even though browser-like keep-alive root p95 was 30.4 ms and on-device localhost requests took 10–20 ms. There is no valid ten-minute pre-change baseline.
+- The active HLS master playlist returns HTTP 200. Authenticated Home Assistant entity verification, a user-approved video stop/start check, and the docked-video-off plus two user-started-cleaning profiles are still pending for this deployment. The vacuum is currently docked and idle; do not start cleaning or change video state without user coordination.
 - MCP runs locally over stdio, targets the robot over the private LAN, applies bounded request timeouts, supports optional paired Basic Auth variables, and advertises 49 tools.
 - The ineffective video-quality selector and its API/MCP tools were removed.
-- Home Assistant sees `Vacuum CleanusMaximus` through MQTT, MQTT Vacuum Camera, and Valetudo; the final check showed 52 entities, docked/idle state, no error, 100% battery, and available video controls.
-- Parent and plugin integration feature branches were deleted locally and remotely after successful deployment. The native companion `feature/alarm-sentry` fixes through `6ab9a50` are published.
+- The previous baseline showed 52 Home Assistant entities for `Vacuum CleanusMaximus` through MQTT, MQTT Vacuum Camera, and Valetudo. Reconfirm those authenticated UI details before recording final acceptance for `f1e5a157`.
+- The GUI resource/observability and static MIME hotfix branches remain intentionally retained until final acceptance. The native companion `feature/alarm-sentry` fixes through `6ab9a50` are published.
 - Current source work adds native MQTT/Home Assistant discovery for plugin TTS/video controls, mop-dock actions, and robot quirks.
 
 ## Documentation Map

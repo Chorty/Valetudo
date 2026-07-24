@@ -38,7 +38,7 @@ for procdir in /proc/[0-9]*; do
     valetudo) logical="valetudo" ;;
     video_monitor) logical="video_monitor" ;;
     go2rtc) logical="go2rtc" ;;
-    maploader) logical="maploader" ;;
+    maploader|maploader-binar) logical="maploader" ;;
     dmr_player) logical="dmr_player" ;;
   esac
   [ -n "$logical" ] || continue
@@ -587,6 +587,7 @@ module.exports = {
     HTTP_RESPONSE_LIMIT_BYTES,
     MAX_SAMPLE_COUNT,
     PROCESS_NAMES,
+    REMOTE_SAMPLE_COMMAND,
     SSH_OUTPUT_LIMIT_BYTES,
     discoverMainScript,
     executeSsh,

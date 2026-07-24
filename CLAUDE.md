@@ -21,15 +21,16 @@ Never commit SSH keys, passwords, Home Assistant tokens, or MCP credentials. Cre
 
 ## Current Deployed Baseline
 
-- Valetudo PR: `Chorty/Valetudo#6`, merged with a merge commit
-- Valetudo merge commit: `1c0f5b9fdb6de5492f6f6e9acb1df006c12674ff`
-- GitHub Actions build: run `29884181662`, whose `headSha` matched the merge commit
-- Active ARM64 binary SHA-256: `95fe4ea4f6023acaef191a7a3a732efbcc70ca7254f3a5cf4d0d5466c775a0b9`
-- Latest verified backup: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234/robot_backup_20260721_215739`
-- Backup archive checksum: `65b3ca8e377428602825cb48bde3b9ab91adafe39e907fff9f9e6184c5832007`
-- Retained on-device rollback binary: `/data/valetudo.predeploy_1c0f5b9f`
+- GUI resource/observability PR: `Chorty/Valetudo#7`, merge commit `6a8829ea02257bd8d3314d0d9052655e21f8056f`
+- Static MIME hotfix PR: `Chorty/Valetudo#8`, final merge commit `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
+- Exact-merge GitHub Actions build: run `30062082320`, whose `headSha` matched `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
+- Active ARM64 binary SHA-256: `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`
+- Latest verified backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321`
+- Backup archive checksum: `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`
+- Immediate on-device rollback binary: `/data/valetudo.predeploy_f1e5a157`
+- Earlier retained rollback binary: `/data/valetudo.predeploy_6a8829ea`
 
-The deployed baseline passed root/API health checks, MQTT/Home Assistant availability, MCP capability checks, map management, joystick zero-motion and disable fail-safes, video start/stop and HLS playback, and watchdog-stability checks. The robot finished idle, docked, error-free, and at 100% battery. Keep the backup and the previous on-device binary until a newer deployment passes the same acceptance gate.
+The current deployment passed the candidate checksum and automatic-rollback gate, twelve consecutive root/API health checks, exact runtime commit verification, compressed static-asset headers, MQTT connectivity, MCP read-only capability checks, map management, the state SSE stream, joystick zero-motion and disable fail-safes, AVA-priority verification, and initial watchdog stability. The robot remained idle, docked, error-free, and at 100% battery. Authenticated Home Assistant entity verification and the state-changing video stop/start check remain user-gated; do not claim those checks for this deployment until they are recorded below. Keep both Mac backups and both on-device rollback binaries until final acceptance is complete.
 
 ## Safe Build and Deployment
 
@@ -68,6 +69,10 @@ Defaults are SSH host `vacuum`, HTTP base `http://192.168.1.31`, a five-second i
 Each run receives a unique private mode-`0700` directory containing exclusively created mode-`0600` `samples.csv`, `summary.json`, and `metadata.json`. The summary reports HTTP failures and latency percentiles, process CPU/RSS peaks, load, and minimum available memory. SSH output and HTTP bodies are size-bounded, every operation has an absolute deadline, and the measured JavaScript bundle must be an exact same-origin hashed main asset. The profiler never reads process arguments, environment variables, authorization headers, request queries, bodies, or robot logs.
 
 For comparisons, capture ten minutes each while docked with video off/on and during two user-started normal cleanings with video off/on. Never start cleaning or send movement commands for a benchmark. Compare like-for-like scenarios and roll back a candidate if HTTP fails, available memory falls below 150 MB, AVA or the watchdog reports errors, or latency/CPU/RSS regresses by more than 20%.
+
+The first post-deployment docked/video-on acceptance run that captured every required process is stored at `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-24T03-34-33-541Z_after-f1e5a157-docked-video-on-maploader-fix_AcWD9N`. It contains 120 samples with zero HTTP failures. Root p50/p95/max were 158.3/232.6/272.9 ms, state p95 was 209.6 ms, minimum available memory was 484036 KB, and peak one-minute load was 6.73. The 232.6 ms root p95 misses the formal 150 ms docked target, so the four-scenario benchmark is not signed off. A separate browser-like persistent-connection check produced a 30.4 ms root p95 over 30 requests, on-vacuum localhost root requests took 10–20 ms, and LAN ICMP averaged 24.9 ms with a 58.3 ms maximum; this evidence points to connection/network overhead rather than a blocked HTTP event loop, but it does not replace the formal profile result. The only earlier “before” capture was a two-sample smoke test and is not a valid regression baseline.
+
+Linux truncates `/proc/<pid>/comm` to 15 characters, so this robot reports the maploader as `maploader-binar`. The profiler accepts both that deployed name and `maploader`; the corrected run measured maploader at 0.026% average CPU and 4400 KB peak RSS.
 
 Set `VALETUDO_SLOW_REQUEST_MS=500` only during an acceptance deployment to log privacy-safe warnings for HTTP responses taking at least 500 ms. The variable defaults to `0` (disabled) and accepts `0` or an integer from 100 through 60000. Telemetry excludes SSE and log-content routes and never logs queries, bodies, headers, client addresses, or credentials.
 

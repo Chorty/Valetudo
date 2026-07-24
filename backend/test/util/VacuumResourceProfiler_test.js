@@ -41,6 +41,10 @@ test("remote samples calculate system and process CPU without recording command 
     assert.equal(JSON.stringify(sample).includes("secret"), false);
 });
 
+test("remote sampling recognizes the kernel-truncated maploader process name", () => {
+    assert.match(Profiler.REMOTE_SAMPLE_COMMAND, /maploader\|maploader-binar\) logical="maploader"/);
+});
+
 test("profiler extracts selected robot state and discovers the hashed main script", () => {
     const state = Profiler.extractRobotState(JSON.stringify([
         {__class: "BatteryStateAttribute", level: 88},
