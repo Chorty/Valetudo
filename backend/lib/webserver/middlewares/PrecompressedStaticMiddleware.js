@@ -39,7 +39,7 @@ module.exports = function(options) {
             return;
         }
 
-        res.type(originalPath);
+        res.type(path.extname(originalPath));
         res.set("Content-Encoding", encoding);
         res.vary("Accept-Encoding");
         res.set("Cache-Control", "public, max-age=31536000, immutable");

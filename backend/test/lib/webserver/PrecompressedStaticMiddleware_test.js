@@ -43,7 +43,7 @@ test("middleware serves matching compressed bytes with immutable cache headers",
     assert.equal(brotli.headers["Content-Encoding"], "br");
     assert.equal(brotli.headers.Vary, "Accept-Encoding");
     assert.equal(brotli.headers["Cache-Control"], "public, max-age=31536000, immutable");
-    assert.equal(brotli.contentType, file);
+    assert.equal(brotli.contentType, ".js");
     assert.deepEqual(zlib.brotliDecompressSync(brotli.body), contents);
 
     const identity = createResponse();
