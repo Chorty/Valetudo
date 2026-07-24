@@ -4,6 +4,7 @@ const dynamicMiddleware = require("express-dynamic-middleware");
 const express = require("express");
 const http = require("http");
 const path = require("path");
+const RateLimit = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const swaggerValidation = require("openapi-validator-middleware");
 
@@ -149,10 +150,19 @@ class WebServer {
         const frontendBuildPath = path.join(__dirname, "../../..", "frontend/build");
         const frontendStaticPath = path.join(frontendBuildPath, "static");
         const frontendStaticAssets = Middlewares.PrecompressedStaticMiddleware.buildAssetIndex(frontendStaticPath);
-        this.app.use("/static/", Middlewares.PrecompressedStaticMiddleware({
-            assets: frontendStaticAssets,
-            root: frontendStaticPath
-        }));
+        this.app.use(
+            "/static/",
+            RateLimit.rateLimit({
+                windowMs: 10*1000,
+                max: 120,
+                standardHeaders: false,
+                legacyHeaders: false
+            }),
+            Middlewares.PrecompressedStaticMiddleware({
+                assets: frontendStaticAssets,
+                root: frontendStaticPath
+            })
+        );
         this.app.use("/static/", express.static(frontendStaticPath, {
             immutable: true,
             maxAge: "1y"
