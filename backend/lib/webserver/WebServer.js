@@ -4,6 +4,7 @@ const dynamicMiddleware = require("express-dynamic-middleware");
 const express = require("express");
 const http = require("http");
 const path = require("path");
+const RateLimit = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const swaggerValidation = require("openapi-validator-middleware");
 
@@ -66,6 +67,7 @@ class WebServer {
         this.app.use(Middlewares.CSPMiddleware);
         this.app.use(Middlewares.VersionMiddleware);
         this.app.use(Middlewares.ServerMiddleware);
+        this.app.use(Middlewares.SlowRequestMiddleware());
 
         if (this.webserverConfig.blockExternalAccess) {
             this.app.use(Middlewares.ExternalAccessCheckMiddleware);
@@ -145,7 +147,30 @@ class WebServer {
 
         this.app.use("/_ssdp/", new SSDPRouter({config: this.config, robot: this.robot, valetudoHelper: this.valetudoHelper}).getRouter());
 
-        this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
+        const frontendBuildPath = path.join(__dirname, "../../..", "frontend/build");
+        const frontendStaticPath = path.join(frontendBuildPath, "static");
+        const frontendStaticAssets = Middlewares.PrecompressedStaticMiddleware.buildAssetIndex(frontendStaticPath);
+        this.app.use(
+            "/static/",
+            RateLimit.rateLimit({
+                windowMs: 10*1000,
+                max: 120,
+                standardHeaders: false,
+                legacyHeaders: false
+            }),
+            Middlewares.PrecompressedStaticMiddleware({
+                assets: frontendStaticAssets,
+                root: frontendStaticPath
+            })
+        );
+        this.app.use("/static/", express.static(frontendStaticPath, {
+            immutable: true,
+            maxAge: "1y"
+        }));
+        this.app.use(express.static(frontendBuildPath, {
+            etag: true,
+            maxAge: 0
+        }));
 
 
         this.robot.initModelSpecificWebserverRoutes(this.app);

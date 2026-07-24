@@ -1,12 +1,14 @@
 import {HashRouter, Navigate, Route, Routes} from "react-router-dom";
 import Div100vh from "react-div-100vh";
 import HomePage from "./HomePage";
-import OptionsRouter from "./options";
 import {PaletteMode, styled} from "@mui/material";
-import RobotRouter from "./robot";
 import ValetudoAppBar from "./components/ValetudoAppBar";
 import React from "react";
-import ValetudoRouter from "./valetudo";
+import ValetudoSplash from "./components/ValetudoSplash";
+
+const OptionsRouter = React.lazy(() => import("./options"));
+const RobotRouter = React.lazy(() => import("./robot"));
+const ValetudoRouter = React.lazy(() => import("./valetudo"));
 
 const Root = styled(Div100vh)({
     display: "flex",
@@ -31,13 +33,15 @@ const AppRouter: React.FunctionComponent<{ paletteMode: PaletteMode, setPaletteM
             <Root>
                 <Content>
                     <ValetudoAppBar paletteMode={paletteMode} setPaletteMode={setPaletteMode}/>
-                    <Routes>
-                        <Route path="" element={<HomePage />} />
-                        <Route path="robot/*" element={<RobotRouter />} />
-                        <Route path="options/*" element={<OptionsRouter />} />
-                        <Route path="valetudo/*" element={<ValetudoRouter />} />
-                        <Route path="*" element={<Navigate to="/" />} />
-                    </Routes>
+                    <React.Suspense fallback={<ValetudoSplash/>}>
+                        <Routes>
+                            <Route path="" element={<HomePage />} />
+                            <Route path="robot/*" element={<RobotRouter />} />
+                            <Route path="options/*" element={<OptionsRouter />} />
+                            <Route path="valetudo/*" element={<ValetudoRouter />} />
+                            <Route path="*" element={<Navigate to="/" />} />
+                        </Routes>
+                    </React.Suspense>
                 </Content>
             </Root>
         </HashRouter>

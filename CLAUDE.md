@@ -55,6 +55,22 @@ Before deployment:
 
 Do not replace `/data/valetudo` directly without a fresh backup, candidate checksum verification, and rollback path.
 
+## GUI Resource Profiling
+
+Run the dependency-free profiler on this Mac; it only reads fixed process counters over SSH and sends bounded HTTP requests to Valetudo:
+
+```bash
+npm run profile_vacuum_resources -- --label docked-video-off --duration 600
+```
+
+Defaults are SSH host `vacuum`, HTTP base `http://192.168.1.31`, a five-second interval, a ten-minute duration, and output below `~/Documents/ValetudoProfiles`. Override them with `--ssh-host`, `--http-base`, `--interval`, `--duration`, `--timeout`, and `--output`. The SSH value must be a host alias or IP address, not an option. The HTTP value must be a credential-free origin with no path, query, or fragment. Duration is limited to 5–86400 seconds, interval to 1–3600 seconds, timeout to 100–120000 milliseconds, and a run to 10000 samples.
+
+Each run receives a unique private mode-`0700` directory containing exclusively created mode-`0600` `samples.csv`, `summary.json`, and `metadata.json`. The summary reports HTTP failures and latency percentiles, process CPU/RSS peaks, load, and minimum available memory. SSH output and HTTP bodies are size-bounded, every operation has an absolute deadline, and the measured JavaScript bundle must be an exact same-origin hashed main asset. The profiler never reads process arguments, environment variables, authorization headers, request queries, bodies, or robot logs.
+
+For comparisons, capture ten minutes each while docked with video off/on and during two user-started normal cleanings with video off/on. Never start cleaning or send movement commands for a benchmark. Compare like-for-like scenarios and roll back a candidate if HTTP fails, available memory falls below 150 MB, AVA or the watchdog reports errors, or latency/CPU/RSS regresses by more than 20%.
+
+Set `VALETUDO_SLOW_REQUEST_MS=500` only during an acceptance deployment to log privacy-safe warnings for HTTP responses taking at least 500 ms. The variable defaults to `0` (disabled) and accepts `0` or an integer from 100 through 60000. Telemetry excludes SSE and log-content routes and never logs queries, bodies, headers, client addresses, or credentials.
+
 ## Plugin Capabilities
 
 | Capability | Purpose |
