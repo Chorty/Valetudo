@@ -54,6 +54,35 @@ test("middleware serves matching compressed bytes with immutable cache headers",
     assert.equal(identity.headers.Vary, "Accept-Encoding");
 });
 
+test("middleware indexes immutable assets once and performs no request-time stat calls", t => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "valetudo-static-index-"));
+    const root = path.join(temporary, "static");
+    const file = path.join(root, "js", "main.abc12345.js");
+    fs.mkdirSync(path.dirname(file), {recursive: true});
+    fs.writeFileSync(file, "original");
+    fs.writeFileSync(`${file}.br`, "brotli");
+    const middleware = PrecompressedStaticMiddleware({root: root});
+    const originalStatSync = fs.statSync;
+    t.after(() => {
+        fs.statSync = originalStatSync;
+        fs.rmSync(temporary, {force: true, recursive: true});
+    });
+
+    fs.statSync = () => assert.fail("request handling must not call fs.statSync");
+    const response = createResponse();
+    middleware({headers: {"accept-encoding": "br"}, method: "GET", path: "/js/main.abc12345.js"}, response, () => {
+        assert.fail("indexed Brotli asset should be served");
+    });
+    assert.equal(response.headers["Content-Encoding"], "br");
+    assert.equal(response.body.toString(), "brotli");
+
+    let nextCalled = false;
+    middleware({headers: {"accept-encoding": "br"}, method: "GET", path: "/js/missing.abc12345.js"}, createResponse(), () => {
+        nextCalled = true;
+    });
+    assert.equal(nextCalled, true);
+});
+
 function createResponse() {
     return {
         headers: {},

@@ -3,6 +3,10 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 
+const CAPTURE_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
+const HTTP_RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024;
+const MAX_SAMPLE_COUNT = 10000;
+const SSH_OUTPUT_LIMIT_BYTES = 1024 * 1024;
 const PROCESS_NAMES = ["ava", "valetudo", "video_monitor", "go2rtc", "maploader", "dmr_player"];
 const DEFAULTS = Object.freeze({
     duration: 600,
@@ -71,21 +75,35 @@ function parseArguments(argv) {
         options[toCamelCase(rawName)] = value;
     }
 
-    for (const key of ["duration", "interval", "timeout"]) {
-        const value = Number(options[key]);
-        if (!Number.isFinite(value) || value <= 0) {
-            throw new Error(`--${toKebabCase(key)} must be a positive number`);
-        }
-        options[key] = value;
-    }
-    if (options.interval > options.duration) {
-        throw new Error("--interval cannot be greater than --duration");
-    }
+    options.duration = parseBoundedInteger("duration", options.duration, 5, 86400);
+    options.interval = parseBoundedInteger("interval", options.interval, 1, 3600);
+    options.timeout = parseBoundedInteger("timeout", options.timeout, 100, 120000);
+    validateSchedule(options);
     options.httpBase = validateHttpBase(options.httpBase);
     options.label = sanitizeLabel(options.label);
     options.output = path.resolve(options.output);
+    options.sshHost = validateSshHost(options.sshHost);
 
     return options;
+}
+
+function parseBoundedInteger(name, value, minimum, maximum) {
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+        throw new Error(`--${toKebabCase(name)} must be an integer from ${minimum} through ${maximum}`);
+    }
+    return parsed;
+}
+
+function validateSchedule(options) {
+    if (options.interval > options.duration) {
+        throw new Error("--interval cannot be greater than --duration");
+    }
+    const sampleCount = Math.max(1, Math.floor(options.duration / options.interval));
+    if (sampleCount > MAX_SAMPLE_COUNT) {
+        throw new Error(`Profile schedule exceeds the ${MAX_SAMPLE_COUNT}-sample limit`);
+    }
+    return sampleCount;
 }
 
 function toCamelCase(value) {
@@ -98,10 +116,18 @@ function toKebabCase(value) {
 
 function validateHttpBase(value) {
     const parsed = new URL(value);
-    if (parsed.protocol !== "http:" || parsed.username || parsed.password || parsed.search || parsed.hash) {
-        throw new Error("--http-base must be an HTTP URL without credentials, a query, or a fragment");
+    if (parsed.protocol !== "http:" || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
+        throw new Error("--http-base must be an HTTP origin without credentials, a path, a query, or a fragment");
     }
-    return parsed.toString().replace(/\/$/, "");
+    return parsed.origin;
+}
+
+function validateSshHost(value) {
+    const host = String(value);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(host)) {
+        throw new Error("--ssh-host must be an SSH config host or IP address without options or whitespace");
+    }
+    return host;
 }
 
 function sanitizeLabel(value) {
@@ -206,22 +232,36 @@ function numberOrNull(value) {
 }
 
 function executeSsh(host, timeout) {
+    const validatedHost = validateSshHost(host);
     return new Promise(resolve => {
         const started = process.hrtime.bigint();
         const child = childProcess.spawn("ssh", [
             "-o", "BatchMode=yes",
             "-o", `ConnectTimeout=${Math.max(1, Math.ceil(timeout / 1000))}`,
-            host,
+            "--",
+            validatedHost,
             REMOTE_SAMPLE_COMMAND
-        ], {stdio: ["ignore", "pipe", "pipe"]});
+        ], {stdio: ["ignore", "pipe", "ignore"]});
         const stdout = [];
+        let stdoutBytes = 0;
         let settled = false;
         const timer = setTimeout(() => {
             child.kill("SIGTERM");
             finish({error: "SSH sample timed out", ok: false});
         }, timeout);
 
-        child.stdout.on("data", chunk => stdout.push(chunk));
+        child.stdout.on("data", chunk => {
+            if (settled) {
+                return;
+            }
+            stdoutBytes += chunk.length;
+            if (stdoutBytes > SSH_OUTPUT_LIMIT_BYTES) {
+                child.kill("SIGTERM");
+                finish({error: "SSH sample exceeded output limit", ok: false});
+                return;
+            }
+            stdout.push(chunk);
+        });
         child.on("error", error => finish({error: safeError(error), ok: false}));
         child.on("close", code => finish(code === 0 ? {
             durationMs: elapsedMs(started),
@@ -235,6 +275,7 @@ function executeSsh(host, timeout) {
             }
             settled = true;
             clearTimeout(timer);
+            child.stdout.removeAllListeners("data");
             resolve(result);
         }
     });
@@ -245,29 +286,63 @@ function measureHttp(url, timeout, captureBody = false, acceptEncoding = "identi
         const started = process.hrtime.bigint();
         let firstByteMs = null;
         let bytes = 0;
-        const request = http.get(url, {headers: {"Accept-Encoding": acceptEncoding, "User-Agent": "ValetudoResourceProfiler/1"}}, response => {
-            const chunks = [];
-            response.once("data", () => {
-                firstByteMs = elapsedMs(started);
+        let capturedBytes = 0;
+        let response;
+        let settled = false;
+        let request;
+        const timer = setTimeout(() => {
+            request?.destroy();
+            response?.destroy();
+            finish({durationMs: elapsedMs(started), error: "timeout", ok: false});
+        }, timeout);
+
+        try {
+            request = http.get(url, {headers: {"Accept-Encoding": acceptEncoding, "User-Agent": "ValetudoResourceProfiler/1"}}, incoming => {
+                response = incoming;
+                const chunks = [];
+                response.once("data", () => {
+                    firstByteMs = elapsedMs(started);
+                });
+                response.on("data", chunk => {
+                    bytes += chunk.length;
+                    if (bytes > HTTP_RESPONSE_LIMIT_BYTES) {
+                        request.destroy();
+                        response.destroy();
+                        finish({durationMs: elapsedMs(started), error: "response_too_large", ok: false});
+                        return;
+                    }
+                    if (captureBody && capturedBytes < CAPTURE_BODY_LIMIT_BYTES) {
+                        const remaining = CAPTURE_BODY_LIMIT_BYTES - capturedBytes;
+                        const captured = chunk.length <= remaining ? chunk : chunk.subarray(0, remaining);
+                        chunks.push(captured);
+                        capturedBytes += captured.length;
+                    }
+                });
+                response.once("aborted", () => finish({durationMs: elapsedMs(started), error: "response_aborted", ok: false}));
+                response.once("error", error => finish({durationMs: elapsedMs(started), error: safeError(error), ok: false}));
+                response.on("end", () => finish({
+                    body: captureBody ? Buffer.concat(chunks).toString("utf8") : undefined,
+                    bytes,
+                    contentEncoding: response.headers["content-encoding"] || "identity",
+                    durationMs: elapsedMs(started),
+                    firstByteMs: firstByteMs ?? elapsedMs(started),
+                    ok: response.statusCode >= 200 && response.statusCode < 400,
+                    status: response.statusCode
+                }));
             });
-            response.on("data", chunk => {
-                bytes += chunk.length;
-                if (captureBody && bytes <= 2 * 1024 * 1024) {
-                    chunks.push(chunk);
-                }
-            });
-            response.on("end", () => resolve({
-                body: captureBody ? Buffer.concat(chunks).toString("utf8") : undefined,
-                bytes,
-                contentEncoding: response.headers["content-encoding"] || "identity",
-                durationMs: elapsedMs(started),
-                firstByteMs: firstByteMs ?? elapsedMs(started),
-                ok: response.statusCode >= 200 && response.statusCode < 400,
-                status: response.statusCode
-            }));
-        });
-        request.setTimeout(timeout, () => request.destroy(new Error("HTTP request timed out")));
-        request.on("error", error => resolve({durationMs: elapsedMs(started), error: safeError(error), ok: false}));
+            request.once("error", error => finish({durationMs: elapsedMs(started), error: safeError(error), ok: false}));
+        } catch (error) {
+            finish({durationMs: elapsedMs(started), error: safeError(error), ok: false});
+        }
+
+        function finish(result) {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            resolve(result);
+        }
     });
 }
 
@@ -313,9 +388,28 @@ function extractVideoState(body) {
 }
 
 function discoverMainScript(html, base) {
-    const matches = [...String(html).matchAll(/<script[^>]+src=["']([^"']+\.js)["']/gi)];
-    const preferred = matches.find(match => /\/static\/js\/main\.[a-f0-9]+\.js$/i.test(match[1])) || matches.at(-1);
-    return preferred ? new URL(preferred[1], `${base}/`).toString() : null;
+    const baseUrl = new URL(base);
+    const matches = String(html).matchAll(/<script[^>]+src=["']([^"']+\.js)["']/gi);
+
+    for (const match of matches) {
+        let candidate;
+        try {
+            candidate = new URL(match[1], `${baseUrl.origin}/`);
+        } catch {
+            continue;
+        }
+        if (
+            candidate.origin === baseUrl.origin &&
+            !candidate.username &&
+            !candidate.password &&
+            !candidate.search &&
+            !candidate.hash &&
+            /^\/static\/js\/main\.[a-f0-9]{8}\.js$/i.test(candidate.pathname)
+        ) {
+            return candidate.toString();
+        }
+    }
+    return null;
 }
 
 function percentile(values, percentage) {
@@ -380,7 +474,10 @@ function csvEscape(value) {
     if (value === undefined || value === null) {
         return "";
     }
-    const string = String(value);
+    let string = String(value);
+    if (typeof value === "string" && /^[=+\-@\t\r]/.test(string)) {
+        string = `'${string}`;
+    }
     return /[",\n]/.test(string) ? `"${string.replace(/"/g, '""')}"` : string;
 }
 
@@ -406,31 +503,39 @@ function samplesToCsv(samples) {
 }
 
 async function runProfile(options, dependencies = {}) {
+    const profileOptions = {
+        duration: parseBoundedInteger("duration", options.duration, 5, 86400),
+        httpBase: validateHttpBase(options.httpBase),
+        interval: parseBoundedInteger("interval", options.interval, 1, 3600),
+        label: sanitizeLabel(options.label),
+        sshHost: validateSshHost(options.sshHost),
+        timeout: parseBoundedInteger("timeout", options.timeout, 100, 120000)
+    };
     const ssh = dependencies.executeSsh || executeSsh;
     const httpMeasure = dependencies.measureHttp || measureHttp;
     const sleep = dependencies.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
-    const sampleCount = Math.max(1, Math.floor(options.duration / options.interval));
+    const sampleCount = validateSchedule(profileOptions);
     const samples = [];
     let previous;
     let javascriptUrl = null;
-    const initialIndex = await httpMeasure(`${options.httpBase}/`, options.timeout, true);
+    const initialIndex = await httpMeasure(`${profileOptions.httpBase}/`, profileOptions.timeout, true);
     if (initialIndex.ok) {
-        javascriptUrl = discoverMainScript(initialIndex.body, options.httpBase);
+        javascriptUrl = discoverMainScript(initialIndex.body, profileOptions.httpBase);
     }
 
     for (let index = 0; index < sampleCount; index++) {
         const sampleStarted = Date.now();
-        const extended = index % Math.max(1, Math.round(30 / options.interval)) === 0;
+        const extended = index % Math.max(1, Math.round(30 / profileOptions.interval)) === 0;
         const requests = [
-            ssh(options.sshHost, options.timeout),
-            httpMeasure(`${options.httpBase}/`, options.timeout),
-            httpMeasure(`${options.httpBase}/api/v2/robot/state/attributes`, options.timeout, true),
-            httpMeasure(`${options.httpBase}/api/v2/robot/capabilities/VideoStreamCapability`, options.timeout, true)
+            ssh(profileOptions.sshHost, profileOptions.timeout),
+            httpMeasure(`${profileOptions.httpBase}/`, profileOptions.timeout),
+            httpMeasure(`${profileOptions.httpBase}/api/v2/robot/state/attributes`, profileOptions.timeout, true),
+            httpMeasure(`${profileOptions.httpBase}/api/v2/robot/capabilities/VideoStreamCapability`, profileOptions.timeout, true)
         ];
         if (extended) {
-            requests.push(httpMeasure(`${options.httpBase}/api/v2/robot/state/map`, options.timeout));
+            requests.push(httpMeasure(`${profileOptions.httpBase}/api/v2/robot/state/map`, profileOptions.timeout));
             if (javascriptUrl) {
-                requests.push(httpMeasure(javascriptUrl, options.timeout, false, "br, gzip"));
+                requests.push(httpMeasure(javascriptUrl, profileOptions.timeout, false, "br, gzip"));
             }
         }
         const [sshResult, rootResult, stateResult, videoResult, mapResult, javascriptResult] = await Promise.all(requests);
@@ -442,14 +547,14 @@ async function runProfile(options, dependencies = {}) {
         }
         samples.push({
             http: {javascript: javascriptResult, map: mapResult, root: rootResult, state: stateResult, video: videoResult},
-            label: options.label,
+            label: profileOptions.label,
             robot: extractRobotState(stateResult.body),
             system,
             timestamp: new Date().toISOString(),
             videoActive: extractVideoState(videoResult.body)
         });
 
-        const remaining = options.interval * 1000 - (Date.now() - sampleStarted);
+        const remaining = profileOptions.interval * 1000 - (Date.now() - sampleStarted);
         if (index + 1 < sampleCount && remaining > 0) {
             await sleep(remaining);
         }
@@ -459,8 +564,8 @@ async function runProfile(options, dependencies = {}) {
 
 function writeResults(options, result) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const directory = path.join(options.output, `${timestamp}_${options.label}`);
-    fs.mkdirSync(directory, {recursive: true, mode: 0o700});
+    fs.mkdirSync(options.output, {recursive: true, mode: 0o700});
+    const directory = fs.mkdtempSync(path.join(options.output, `${timestamp}_${options.label}_`));
     const metadata = {
         completedAt: new Date().toISOString(),
         durationSeconds: options.duration,
@@ -470,17 +575,23 @@ function writeResults(options, result) {
         label: options.label,
         sshHost: options.sshHost
     };
-    fs.writeFileSync(path.join(directory, "metadata.json"), JSON.stringify(metadata, null, 2) + "\n", {mode: 0o600});
-    fs.writeFileSync(path.join(directory, "samples.csv"), samplesToCsv(result.samples), {mode: 0o600});
-    fs.writeFileSync(path.join(directory, "summary.json"), JSON.stringify(result.summary, null, 2) + "\n", {mode: 0o600});
+    fs.writeFileSync(path.join(directory, "metadata.json"), JSON.stringify(metadata, null, 2) + "\n", {flag: "wx", mode: 0o600});
+    fs.writeFileSync(path.join(directory, "samples.csv"), samplesToCsv(result.samples), {flag: "wx", mode: 0o600});
+    fs.writeFileSync(path.join(directory, "summary.json"), JSON.stringify(result.summary, null, 2) + "\n", {flag: "wx", mode: 0o600});
     return directory;
 }
 
 module.exports = {
+    CAPTURE_BODY_LIMIT_BYTES,
     DEFAULTS,
+    HTTP_RESPONSE_LIMIT_BYTES,
+    MAX_SAMPLE_COUNT,
     PROCESS_NAMES,
+    SSH_OUTPUT_LIMIT_BYTES,
     discoverMainScript,
+    executeSsh,
     extractRobotState,
+    measureHttp,
     parseArguments,
     parseProcStat,
     parseRemoteSample,
@@ -489,5 +600,6 @@ module.exports = {
     samplesToCsv,
     summarize,
     validateHttpBase,
+    validateSshHost,
     writeResults
 };

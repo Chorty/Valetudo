@@ -10,6 +10,7 @@ const path = require("path");
  */
 module.exports = function(options) {
     const root = path.resolve(options.root);
+    const assets = buildAssetIndex(root);
 
     return function precompressedStaticMiddleware(req, res, next) {
         if (req.method !== "GET" && req.method !== "HEAD") {
@@ -24,9 +25,10 @@ module.exports = function(options) {
         }
 
         const encoding = selectEncoding(req.headers["accept-encoding"]);
-        const encodedPath = encoding ? `${originalPath}.${encoding === "br" ? "br" : "gz"}` : null;
-        if (!encodedPath || !isRegularFile(originalPath) || !isRegularFile(encodedPath)) {
-            if (isRegularFile(`${originalPath}.br`) || isRegularFile(`${originalPath}.gz`)) {
+        const asset = assets.get(originalPath);
+        const encodedPath = asset && encoding ? asset[encoding] : null;
+        if (!encodedPath) {
+            if (asset?.br || asset?.gzip) {
                 res.vary("Accept-Encoding");
             }
             next();
@@ -84,13 +86,54 @@ function selectEncoding(header) {
     return null;
 }
 
-function isRegularFile(filePath) {
-    try {
-        return fs.statSync(filePath).isFile();
-    } catch {
-        return false;
+function buildAssetIndex(root) {
+    const assets = new Map();
+    const directories = [root];
+
+    while (directories.length > 0) {
+        const directory = directories.pop();
+        let entries;
+        try {
+            entries = fs.readdirSync(directory, {withFileTypes: true});
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            const entryPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                directories.push(entryPath);
+                continue;
+            }
+            if (!entry.isFile()) {
+                continue;
+            }
+
+            let originalPath = entryPath;
+            let representation = "original";
+            if (entryPath.endsWith(".br")) {
+                originalPath = entryPath.slice(0, -3);
+                representation = "br";
+            } else if (entryPath.endsWith(".gz")) {
+                originalPath = entryPath.slice(0, -3);
+                representation = "gzip";
+            }
+            const asset = assets.get(originalPath) || {};
+            asset[representation] = entryPath;
+            assets.set(originalPath, asset);
+        }
     }
+
+    for (const [originalPath, asset] of assets) {
+        if (!asset.original) {
+            assets.delete(originalPath);
+        } else {
+            assets.set(originalPath, Object.freeze(asset));
+        }
+    }
+    return assets;
 }
 
+module.exports.buildAssetIndex = buildAssetIndex;
 module.exports.resolveAssetPath = resolveAssetPath;
 module.exports.selectEncoding = selectEncoding;
