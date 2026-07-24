@@ -148,7 +148,11 @@ class WebServer {
 
         const frontendBuildPath = path.join(__dirname, "../../..", "frontend/build");
         const frontendStaticPath = path.join(frontendBuildPath, "static");
-        this.app.use("/static/", Middlewares.PrecompressedStaticMiddleware({root: frontendStaticPath}));
+        const frontendStaticAssets = Middlewares.PrecompressedStaticMiddleware.buildAssetIndex(frontendStaticPath);
+        this.app.use("/static/", Middlewares.PrecompressedStaticMiddleware({
+            assets: frontendStaticAssets,
+            root: frontendStaticPath
+        }));
         this.app.use("/static/", express.static(frontendStaticPath, {
             immutable: true,
             maxAge: "1y"

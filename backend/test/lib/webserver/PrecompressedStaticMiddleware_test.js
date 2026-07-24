@@ -32,7 +32,8 @@ test("middleware serves matching compressed bytes with immutable cache headers",
     fs.writeFileSync(`${file}.br`, zlib.brotliCompressSync(contents));
     fs.writeFileSync(`${file}.gz`, zlib.gzipSync(contents));
 
-    const middleware = PrecompressedStaticMiddleware({root: root});
+    const assets = PrecompressedStaticMiddleware.buildAssetIndex(root);
+    const middleware = PrecompressedStaticMiddleware({assets: assets, root: root});
     t.after(() => {
         fs.rmSync(temporary, {force: true, recursive: true});
     });
@@ -54,21 +55,25 @@ test("middleware serves matching compressed bytes with immutable cache headers",
     assert.equal(identity.headers.Vary, "Accept-Encoding");
 });
 
-test("middleware indexes immutable assets once and performs no request-time stat calls", t => {
+test("middleware uses a prebuilt index without request-time filesystem discovery", t => {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "valetudo-static-index-"));
     const root = path.join(temporary, "static");
     const file = path.join(root, "js", "main.abc12345.js");
     fs.mkdirSync(path.dirname(file), {recursive: true});
     fs.writeFileSync(file, "original");
     fs.writeFileSync(`${file}.br`, "brotli");
-    const middleware = PrecompressedStaticMiddleware({root: root});
+    const assets = PrecompressedStaticMiddleware.buildAssetIndex(root);
     const originalStatSync = fs.statSync;
+    const originalReaddirSync = fs.readdirSync;
     t.after(() => {
         fs.statSync = originalStatSync;
+        fs.readdirSync = originalReaddirSync;
         fs.rmSync(temporary, {force: true, recursive: true});
     });
 
     fs.statSync = () => assert.fail("request handling must not call fs.statSync");
+    fs.readdirSync = () => assert.fail("middleware construction and request handling must not scan the filesystem");
+    const middleware = PrecompressedStaticMiddleware({assets: assets, root: root});
     const response = createResponse();
     middleware({headers: {"accept-encoding": "br"}, method: "GET", path: "/js/main.abc12345.js"}, response, () => {
         assert.fail("indexed Brotli asset should be served");

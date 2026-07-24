@@ -6,11 +6,15 @@ const path = require("path");
  *
  * @param {object} options
  * @param {string} options.root
+ * @param {Map<string, object>} options.assets
  * @returns {(function(*, *, *): void)}
  */
 module.exports = function(options) {
     const root = path.resolve(options.root);
-    const assets = buildAssetIndex(root);
+    if (!(options.assets instanceof Map)) {
+        throw new TypeError("A prebuilt static asset index is required");
+    }
+    const assets = options.assets;
 
     return function precompressedStaticMiddleware(req, res, next) {
         if (req.method !== "GET" && req.method !== "HEAD") {
