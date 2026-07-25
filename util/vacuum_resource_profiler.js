@@ -432,7 +432,7 @@ function summarize(samples) {
         processes: {},
         samples: samples.length
     };
-    for (const key of ["root", "state", "map", "javascript", "video"]) {
+    for (const key of ["rootIsolated", "root", "state", "map", "javascript", "video"]) {
         const measurements = samples.map(sample => sample.http?.[key]).filter(Boolean);
         const durations = measurements.map(value => value.durationMs);
         summary.http[key] = {
@@ -491,8 +491,14 @@ function samplesToCsv(samples) {
         ["cpu_busy_percent", sample => sample.system?.systemCpu?.busyPercent],
         ["memory_available_kb", sample => sample.system?.memory?.availableKb],
         ["wifi_rssi_dbm", sample => sample.system?.wifi?.rssiDbm],
+        ["extended", sample => sample.extended],
+        ["root_isolated_status", sample => sample.http?.rootIsolated?.status],
+        ["root_isolated_ms", sample => sample.http?.rootIsolated?.durationMs],
         ["root_status", sample => sample.http?.root?.status], ["root_ms", sample => sample.http?.root?.durationMs],
-        ["state_status", sample => sample.http?.state?.status], ["state_ms", sample => sample.http?.state?.durationMs]
+        ["state_status", sample => sample.http?.state?.status], ["state_ms", sample => sample.http?.state?.durationMs],
+        ["map_status", sample => sample.http?.map?.status], ["map_ms", sample => sample.http?.map?.durationMs],
+        ["javascript_status", sample => sample.http?.javascript?.status],
+        ["javascript_ms", sample => sample.http?.javascript?.durationMs]
     ];
     for (const name of PROCESS_NAMES) {
         for (const field of ["pid", "cpuPercent", "rssKb", "threads", "nice"]) {
@@ -525,6 +531,9 @@ async function runProfile(options, dependencies = {}) {
 
     for (let index = 0; index < sampleCount; index++) {
         const sampleStarted = Date.now();
+        // Measured alone, before the concurrent burst below, so it reflects GUI responsiveness
+        // rather than the robot serving several of our own simultaneous requests.
+        const rootIsolatedResult = await httpMeasure(`${profileOptions.httpBase}/`, profileOptions.timeout);
         const extended = index % Math.max(1, Math.round(30 / profileOptions.interval)) === 0;
         const requests = [
             ssh(profileOptions.sshHost, profileOptions.timeout),
@@ -546,7 +555,8 @@ async function runProfile(options, dependencies = {}) {
             previous = parsed.rawState;
         }
         samples.push({
-            http: {javascript: javascriptResult, map: mapResult, root: rootResult, state: stateResult, video: videoResult},
+            extended,
+            http: {javascript: javascriptResult, map: mapResult, root: rootResult, rootIsolated: rootIsolatedResult, state: stateResult, video: videoResult},
             label: profileOptions.label,
             robot: extractRobotState(stateResult.body),
             system,

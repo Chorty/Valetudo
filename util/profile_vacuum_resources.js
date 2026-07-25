@@ -31,7 +31,11 @@ async function main() {
     const result = await runProfile(options);
     const directory = writeResults(options, result);
     process.stdout.write(`Profile complete: ${directory}\n`);
-    process.stdout.write(`Root HTTP failures: ${result.summary.http.root.failures}; p95: ${result.summary.http.root.p95Ms?.toFixed(1) ?? "n/a"} ms\n`);
+    const isolated = result.summary.http.rootIsolated;
+    const burst = result.summary.http.root;
+    process.stdout.write(`Root HTTP failures: ${isolated.failures + burst.failures}\n`);
+    process.stdout.write(`Root p95 isolated (GUI responsiveness): ${isolated.p95Ms?.toFixed(1) ?? "n/a"} ms\n`);
+    process.stdout.write(`Root p95 under profiler burst: ${burst.p95Ms?.toFixed(1) ?? "n/a"} ms\n`);
 }
 
 main().catch(error => {
