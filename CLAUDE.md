@@ -21,15 +21,16 @@ Never commit SSH keys, passwords, Home Assistant tokens, or MCP credentials. Cre
 
 ## Current Deployed Baseline
 
-- Valetudo PR: `Chorty/Valetudo#6`, merged with a merge commit
-- Valetudo merge commit: `1c0f5b9fdb6de5492f6f6e9acb1df006c12674ff`
-- GitHub Actions build: run `29884181662`, whose `headSha` matched the merge commit
-- Active ARM64 binary SHA-256: `95fe4ea4f6023acaef191a7a3a732efbcc70ca7254f3a5cf4d0d5466c775a0b9`
-- Latest verified backup: `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234/robot_backup_20260721_215739`
-- Backup archive checksum: `65b3ca8e377428602825cb48bde3b9ab91adafe39e907fff9f9e6184c5832007`
-- Retained on-device rollback binary: `/data/valetudo.predeploy_1c0f5b9f`
+- GUI resource/observability PR: `Chorty/Valetudo#7`, merge commit `6a8829ea02257bd8d3314d0d9052655e21f8056f`
+- Static MIME hotfix PR: `Chorty/Valetudo#8`, final merge commit `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
+- Exact-merge GitHub Actions build: run `30062082320`, whose `headSha` matched `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
+- Active ARM64 binary SHA-256: `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`
+- Latest verified backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321`
+- Backup archive checksum: `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`
+- Immediate on-device rollback binary: `/data/valetudo.predeploy_f1e5a157`
+- Earlier retained rollback binary: `/data/valetudo.predeploy_6a8829ea`
 
-The deployed baseline passed root/API health checks, MQTT/Home Assistant availability, MCP capability checks, map management, joystick zero-motion and disable fail-safes, video start/stop and HLS playback, and watchdog-stability checks. The robot finished idle, docked, error-free, and at 100% battery. Keep the backup and the previous on-device binary until a newer deployment passes the same acceptance gate.
+The current deployment passed the candidate checksum and automatic-rollback gate, twelve consecutive root/API health checks, exact runtime commit verification, compressed static-asset headers, MQTT connectivity, MCP read-only capability checks, map management, the state SSE stream, joystick zero-motion and disable fail-safes, AVA-priority verification, authenticated Home Assistant configuration/entity/state verification, and an authorized API video stop/start/HLS check. A user-started normal cleaning completed without loss of robot responsiveness, and the robot returned to the dock normally. Keep both Mac backups and both on-device rollback binaries until the remaining benchmark-duration and latency gaps are resolved or explicitly accepted.
 
 ## Safe Build and Deployment
 
@@ -67,7 +68,98 @@ Defaults are SSH host `vacuum`, HTTP base `http://192.168.1.31`, a five-second i
 
 Each run receives a unique private mode-`0700` directory containing exclusively created mode-`0600` `samples.csv`, `summary.json`, and `metadata.json`. The summary reports HTTP failures and latency percentiles, process CPU/RSS peaks, load, and minimum available memory. SSH output and HTTP bodies are size-bounded, every operation has an absolute deadline, and the measured JavaScript bundle must be an exact same-origin hashed main asset. The profiler never reads process arguments, environment variables, authorization headers, request queries, bodies, or robot logs.
 
-For comparisons, capture ten minutes each while docked with video off/on and during two user-started normal cleanings with video off/on. Never start cleaning or send movement commands for a benchmark. Compare like-for-like scenarios and roll back a candidate if HTTP fails, available memory falls below 150 MB, AVA or the watchdog reports errors, or latency/CPU/RSS regresses by more than 20%.
+### The two root-latency metrics
+
+Each sample measures the root document twice, and the two numbers answer different questions. Do not compare them to each other or to a single threshold.
+
+- **`root_isolated_ms` — GUI responsiveness.** Issued alone, before anything else in the sample, so nothing of the profiler's own competes with it. This is the number a user experiences, and the one the acceptance targets were always meant to express.
+- **`root_ms` — latency under the profiler's concurrent burst.** Issued inside the same `Promise.all` as the SSH `/proc` scan, the state and video requests, and, on extended samples, the map and JavaScript bundle. It measures the robot serving three to five of our own simultaneous requests.
+
+`samples.csv` also records `extended`, `map_ms`, and `javascript_ms` so the burst shape is visible in the recorded data rather than inferable from row position.
+
+### Acceptance criteria
+
+Capture ten minutes each while docked with video off/on and during two user-started normal cleanings with video off/on. Never start cleaning or send movement commands for a benchmark. Compare like-for-like scenarios and roll back a candidate if HTTP fails, available memory falls below 150 MB, AVA or the watchdog reports errors, or CPU/RSS regresses by more than 20%.
+
+Latency gates apply per metric:
+
+- `root_isolated_ms` p95 must be at or below **150 ms docked** and **500 ms cleaning**. This is an absolute gate.
+- `root_ms` has **no absolute target**. Gate it on regression only — more than 20% against the recorded baseline for the same scenario — because its value is dominated by how much load the profiler itself applies.
+
+### Historical results, recorded before the metric was split
+
+Every latency figure in this subsection is `root_ms` under the profiler's own burst. Read them alongside the explanation that follows.
+
+The first post-deployment docked/video-on acceptance run that captured every required process is stored at `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-24T03-34-33-541Z_after-f1e5a157-docked-video-on-maploader-fix_AcWD9N`. It contains 120 samples with zero HTTP failures. Root p50/p95/max were 158.3/232.6/272.9 ms, state p95 was 209.6 ms, minimum available memory was 484036 KB, and peak one-minute load was 6.73.
+
+Three shortened profiles completed on 2026-07-24:
+
+- Docked/video off: `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-25T00-39-52-906Z_after-f1e5a157-docked-video-off-5min_wDWLQI`; 60 docked/idle samples, zero HTTP failures, root p50/p95/max 181.7/356.7/620.0 ms, and 444784 KB minimum available memory.
+- Cleaning/video off: `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-25T00-27-17-801Z_after-f1e5a157-cleaning-video-off-5min_ru60LH`; 60 cleaning/segment samples, zero HTTP failures, root p50/p95/max 364.8/890.0/1208.9 ms, and 482408 KB minimum available memory.
+- Cleaning/video on: `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-25T00-33-14-644Z_after-f1e5a157-cleaning-video-on-5min_eKYuWp`; zero HTTP failures, root p50/p95/max 548.4/1205.9/1531.9 ms, and 433824 KB minimum available memory. The first 52 samples were cleaning/segment and the final eight were the normal return-to-dock transition, so this is not a pure five-minute cleaning workload.
+
+Across the matched 52-sample cleaning subsets, video-on coincided with about 9.6 aggregate CPU percentage points for `video_monitor`, 1.1 points for go2rtc, and about 30 MB of combined process RSS. Root p95 increased from 1069.7 ms with video off to 1369.6 ms with video on, about 28%. AVA and Valetudo CPU/RSS remained within 10%, every request succeeded, AVA stayed at nice 0, and Valetudo/video processes stayed at nice 10. These were sequential runs and do not establish that video caused the latency or load difference.
+
+### Why the pre-2026-07-25 latency figures missed their targets
+
+Every root latency above was recorded before the profiler measured an isolated probe, so all of them are `root_ms` — latency under the profiler's own concurrent burst. They do not indicate a GUI regression. Measured on 2026-07-25, docked with video on, using single `curl` requests spaced five seconds apart:
+
+| Condition | root latency |
+|---|---|
+| root alone | 32–80 ms (p50 ≈48) |
+| root + SSH `/proc` scan | 63–173 ms (p50 ≈87) |
+| root + 2 concurrent API requests | 124–205 ms (p50 ≈166) |
+| root + full extended burst (state, video, map, JS bundle, SSH) | 183–589 ms (p50 ≈240) |
+
+The third row reproduces the recorded non-extended p50 of 155.9 ms and the fourth reproduces the recorded p95 of 232.6 ms, so the profiler's own concurrency accounts for the entire gap. Supporting evidence agrees: browser-like persistent connections gave a 30.4 ms root p95, on-vacuum localhost requests took 10–20 ms, and LAN ICMP averaged 24.9 ms. No 500 ms slow-request warnings appeared in the inspected Valetudo log, though those warnings are rate-limited, so their absence supports rather than proves the conclusion.
+
+The three shortened runs therefore remain valid operational evidence — zero HTTP failures, healthy memory and CPU — whose latency figures are explained rather than anomalous. They are accepted with that explanation rather than re-measured, because re-running the cleaning scenarios would require starting two cleanings. The earlier two-sample smoke capture is still not a valid regression baseline.
+
+### Corrected-metric acceptance runs (2026-07-25)
+
+Docked/video on — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-25T03-35-49-686Z_corrected-docked-video-on_lObcm0`. All 120 samples were docked with video active and there were zero HTTP failures on every endpoint.
+
+- `root_isolated_ms` p50/p95/max 32.6/**81.9**/164.7 ms — passes the 150 ms docked gate
+- `root_ms` p50/p95/max 116.1/166.5/244.7 ms; state p95 189.6 ms; video p95 179.7 ms
+- Minimum available memory 554300 KB; peak one-minute load 8.85
+- AVA averaged 41.4% CPU at 276508 KB peak RSS, Valetudo 4.4% at 72300 KB, `video_monitor` 3.6% at 8232 KB, maploader 0.028% at 4524 KB
+
+Docked/video off — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-25T03-49-39-677Z_corrected-docked-video-off_iLEV6V`. All 120 samples were docked with video inactive and there were zero HTTP failures on every endpoint.
+
+- `root_isolated_ms` p50/p95/max 31.2/**88.8**/126.0 ms — passes the 150 ms docked gate
+- `root_ms` p50/p95/max 70.7/158.8/270.5 ms; state p95 196.0 ms
+- Minimum available memory 572748 KB; peak one-minute load 8.18
+- AVA averaged 40.5% CPU at 276512 KB peak RSS, Valetudo 4.4% at 74840 KB, maploader 0.026% at 4524 KB
+
+Both docked scenarios pass. Comparing them like for like, video-on costs about 3.6 CPU percentage points for `video_monitor`, roughly 18 MB of available memory, and 8% peak load. Isolated latency differs by under 8% in both directions and burst latency by under 5%, so the latency difference between video states is within noise and inside the 20% regression gate. This run was captured while the LAN was being reconfigured; it shows no contamination — zero HTTP failures, an isolated maximum of 126.0 ms, and no sample above 300 ms.
+
+### Corrected-metric cleaning runs (2026-07-26)
+
+The user accepted five-minute rather than ten-minute cleaning windows. Both runs contain 60 pure `cleaning`/`segment` samples at five-second intervals; neither includes a return-to-dock tail. This is useful operational evidence with an explicit shortened-duration caveat, not a waiver of the latency thresholds.
+
+Cleaning/video on — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-26T03-59-03-898Z_corrected-cleaning-video-on-5min_iNx4cH`. All 60 samples had video active and every measured endpoint had zero failures.
+
+- `root_isolated_ms` p50/p95/max 146.0/**617.5**/806.1 ms; 9 of 60 samples exceeded 500 ms — fails the 500 ms cleaning gate
+- `root_ms` p50/p95/max 362.7/1412.3/1896.2 ms
+- Minimum available memory 420412 KB; peak one-minute load 20.15
+- AVA averaged 249.6% CPU at 360436 KB peak RSS, Valetudo 45.3% at 91376 KB, and `video_monitor` 7.4% at 9172 KB
+
+Cleaning/video off — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-26T04-08-22-092Z_corrected-cleaning-video-off-5min_1XsvUn`. All 60 samples had video inactive and every measured endpoint had zero failures.
+
+- `root_isolated_ms` p50/p95/max 106.5/**554.0**/1377.7 ms; 5 of 60 samples exceeded 500 ms — fails the 500 ms cleaning gate
+- `root_ms` p50/p95/max 309.0/1193.1/1348.7 ms
+- Minimum available memory 441160 KB; peak one-minute load 17.24
+- AVA averaged 256.7% CPU at 360356 KB peak RSS and Valetudo 45.8% at 93784 KB
+
+Video-on versus video-off increased isolated p95 by about 11.5%, burst p95 by 18.4%, peak load by 16.9%, and used about 20 MB more available memory. The video processes consumed about 7.4 aggregate CPU percentage points and 26 MB combined RSS. Video is therefore a measurable but secondary cost, not the primary cause of the cleaning latency.
+
+For a pure-cleaning regression comparison, the first 52 samples of the new runs were matched against the first 52 historical cleaning samples. Burst p95 increased 7.0% with video on (1369.6 to 1465.6 ms) and 12.7% with video off (1069.7 to 1205.0 ms), both inside the 20% regression gate. AVA and Valetudo CPU/RSS remained within 15%. Maploader/video-on and `dmr_player` RSS exceeded 20% proportionally, but only by about 1.7 MB and 2 MB respectively; there was no runtime deployment change between captures. Valetudo and AVA PIDs and the watchdog remained stable, available memory stayed far above 150 MB, and video was restored on after the second run.
+
+The operational checks and burst-regression gates pass, but both cleaning scenarios fail the absolute isolated-latency gate. Four-scenario acceptance is therefore complete in coverage but does not pass cleaning latency.
+
+Uptime caveat: the robot rebooted at about 03:10 UTC on 2026-07-25. The cause is stock Dreame firmware maintenance, not Valetudo, the LAN work, or a fault: `/etc/crontabs/root` runs `/usr/bin/check_restart_ava.sh` at 03:00 UTC daily, which sleeps a random 0–7200 seconds, proceeds only if the robot reports idle, then issues `sys_reboot` and reports cloud code 203 ("early-morning reboot offline"). All three boots recorded in `/data/log/fds.log` fall inside that window — Jul 22 04:45, Jul 23 03:14, and Jul 25 03:11 UTC — and the robot was docked and idle each time. Creating `/data/initialize.sh` disables it, which has not been done. Two marker files the script touches were absent afterwards and no `record_common.log` was produced, so the timing fit is strong but not a closed loop. `/sys/fs/pstore` was empty, no kernel panic or OOM was recorded, and AVA, the watchdog, and `sys_monitor` all came back normally. Both corrected-metric docked runs were therefore captured 24 and 38 minutes after boot, whereas the historical runs had roughly two days of uptime. Absolute latency and memory figures are consequently measured on a fresher system and are not a like-for-like comparison against the historical numbers — available memory was 553–573 MB after the reboot versus 423 MB before it. The isolated-versus-burst separation is unaffected by this, because it is an intra-sample comparison: within the very same samples, isolated p50 was 32.6 ms against a burst p50 of 116.1 ms.
+
+Linux truncates `/proc/<pid>/comm` to 15 characters, so this robot reports the maploader as `maploader-binar`. The profiler accepts both that deployed name and `maploader`; the corrected run measured maploader at 0.026% average CPU and 4400 KB peak RSS.
 
 Set `VALETUDO_SLOW_REQUEST_MS=500` only during an acceptance deployment to log privacy-safe warnings for HTTP responses taking at least 500 ms. The variable defaults to `0` (disabled) and accepts `0` or an integer from 100 through 60000. Telemetry excludes SSE and log-content routes and never logs queries, bodies, headers, client addresses, or credentials.
 
@@ -118,7 +210,22 @@ With Valetudo MQTT and Home Assistant autodiscovery enabled, the plugin adds:
 
 The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video.
 
-The latest live verification found the `Vacuum CleanusMaximus` device docked, idle, error-free, and at 100% battery. MQTT, MQTT Vacuum Camera, and Valetudo integrations were available, and the Valetudo MQTT connection reported no disconnects, reconnects, or errors.
+The authenticated 2026-07-24 live verification found MQTT, MQTT Vacuum Camera, and Valetudo configured without failed setup and attached to the same `Vacuum CleanusMaximus` device. The device exposed 52 entities, including maploader, dock actions, TTS, stop-audio, video, and robot-quirk controls; the RTSP and WebRTC URL sensors were the only disabled entities and are disabled by default. Home Assistant reflected the authorized API video stop/start, both video processes returned, the HLS master playlist returned HTTP 200, and a temporary encoded-stream sample measured approximately 15.02 FPS. HA-originated TTS, dock, maploader, and other state-changing entity commands were not exercised during this verification.
+
+On 2026-07-25 the TTS and map-management capabilities were exercised directly against the Valetudo API, closing the gap left by the earlier verification. TTS `speak` returned HTTP 200 after awaiting the full download/convert/play pipeline, with request durations matching real playback (5.19 s for a one-line phrase) and matching `TTS: Speaking` entries in `/tmp/valetudo.log`. Because the route awaits playback, `speaking` is only observable by a concurrent reader; a concurrent poll during a longer phrase returned `speaking: true` with `currentText` populated, and `stop` cancelled the in-flight job after 10.2 s and returned the capability to `speaking: false`. Map management listed 11 slots, exported a non-active slot as a valid 215723-byte gzip archive containing `mult_map.json` and `DivideMap`, saved a new slot, and renamed it, all while the active slot and the docked/idle robot state were unchanged. `load` and `delete` were deliberately not exercised.
+
+Two minor API-semantics observations: the 200-character TTS limit and an interrupted TTS job both surface as HTTP 500 rather than 400 and 200/409 respectively. Both guards work correctly; only the status codes are questionable, and neither was changed.
+
+On 2026-07-26 the authorized Home Assistant → MQTT → Valetudo command path was exercised from the exact live HA entities:
+
+- `switch.valetudo_cleanusmaximus_video_stream` changed Valetudo and HA feedback off, then on; `video_monitor` and go2rtc returned.
+- `notify.valetudo_cleanusmaximus_speak` produced `speaking: true`; `button.valetudo_cleanusmaximus_stop_audio` returned it to false. Cancelling the in-flight MQTT setter produces the already-known MQTT error log for interrupted playback.
+- Mop drying transitioned `idle → drying → idle`, mop-dock cleaning transitioned `idle → cleaning → idle`, and auto-empty transitioned `idle → emptying → idle`, all through HA buttons.
+- `select.vacuum_cleanusmaximus_vacuum_maploader_map` published `main` to `valetudo/CleanusMaximus/maploader/map/set`. Maploader returned idle, the managed-map list remained at 11 slots, the active slot remained `6_rooms_071826_mrqdwbmr` ("6 rooms 071826"), and `/data/config/ava/mult_map.json` retained SHA-256 `1e2ffac9bdf310cedbaf039be05e572f929b34bfd12a9ef671c2d04149126124`.
+
+The first mop-dock-cleaning attempt coincided with a Valetudo MQTT keepalive timeout. HA's service request timed out, the dock stayed idle, Valetudo reconnected and republished discovery automatically, and HA entities were unavailable for about three seconds. MQTT then remained `ready`; the mop-cleaning and drying retries passed. At final verification the robot was docked/idle at 100%, video was on, TTS was idle, Valetudo/AVA/video PIDs and the watchdog were healthy, MQTT was ready, and no map or slot state had changed.
+
+The two vacuum-light automations and `Valetudo: Notifications` are enabled; the notification automation's latest inspected trace completed successfully. The automation named `Vacuum Nightly Front Room Vacuum 11:30` is enabled, but all four of its triggers are individually disabled, so it cannot start automatically until they are re-enabled. That is a Home Assistant configuration finding, not a Valetudo integration failure, and it was not changed automatically.
 
 ## MCP Server
 

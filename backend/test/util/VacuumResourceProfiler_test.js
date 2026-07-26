@@ -41,6 +41,10 @@ test("remote samples calculate system and process CPU without recording command 
     assert.equal(JSON.stringify(sample).includes("secret"), false);
 });
 
+test("remote sampling recognizes the kernel-truncated maploader process name", () => {
+    assert.match(Profiler.REMOTE_SAMPLE_COMMAND, /maploader\|maploader-binar\) logical="maploader"/);
+});
+
 test("profiler extracts selected robot state and discovers the hashed main script", () => {
     const state = Profiler.extractRobotState(JSON.stringify([
         {__class: "BatteryStateAttribute", level: 88},
@@ -67,6 +71,94 @@ test("profiler extracts selected robot state and discovers the hashed main scrip
     ]) {
         assert.equal(Profiler.discoverMainScript(`<script src="${source}"></script>`, "http://vacuum"), null);
     }
+});
+
+test("the isolated root probe is measured alone, before the concurrent burst", async () => {
+    let inFlight = 0;
+    let rootCallIndex = 0;
+    // Call 1 is the pre-loop index fetch; then each sample issues the isolated probe (2, 4)
+    // before its burst root request (3, 5).
+    const isolatedCalls = new Set([2, 4]);
+    const observedConcurrency = new Map();
+
+    const track = async (key, value) => {
+        observedConcurrency.set(key, inFlight);
+        inFlight++;
+        await new Promise(resolve => setImmediate(resolve));
+        inFlight--;
+        return value;
+    };
+
+    const result = await Profiler.runProfile({
+        duration: 10,
+        httpBase: "http://vacuum",
+        interval: 5,
+        label: "isolation-test",
+        sshHost: "vacuum",
+        timeout: 1000
+    }, {
+        executeSsh: () => track("ssh", {ok: false, output: ""}),
+        measureHttp: (url) => {
+            if (url !== "http://vacuum/") {
+                return track(url, {durationMs: 160, ok: true, status: 200});
+            }
+            rootCallIndex++;
+            const isIsolated = isolatedCalls.has(rootCallIndex);
+            return track(`root:${rootCallIndex}`, {
+                body: "<html></html>",
+                durationMs: isIsolated ? 40 : 160,
+                ok: true,
+                status: 200
+            });
+        },
+        sleep: async () => {}
+    });
+
+    assert.equal(rootCallIndex, 5);
+    for (const call of isolatedCalls) {
+        assert.equal(observedConcurrency.get(`root:${call}`), 0, `isolated probe ${call} ran alongside other requests`);
+    }
+    // The burst root request must genuinely overlap the SSH scan and sibling requests.
+    assert.ok(observedConcurrency.get("root:3") > 0);
+    assert.ok(observedConcurrency.get("root:5") > 0);
+
+    assert.equal(result.samples.length, 2);
+    assert.equal(result.samples[0].extended, true);
+    assert.equal(result.samples[1].extended, false);
+    for (const sample of result.samples) {
+        assert.equal(sample.http.rootIsolated.durationMs, 40);
+        assert.equal(sample.http.root.durationMs, 160);
+    }
+    assert.equal(result.summary.http.rootIsolated.p95Ms, 40);
+    assert.equal(result.summary.http.root.p95Ms, 160);
+});
+
+test("CSV exposes the isolated probe, burst shape, and extended-sample requests", () => {
+    const csv = Profiler.samplesToCsv([{
+        extended: true,
+        http: {
+            javascript: {durationMs: 377, status: 200},
+            map: {durationMs: 178, status: 200},
+            root: {durationMs: 156, status: 200},
+            rootIsolated: {durationMs: 48, status: 200},
+            state: {durationMs: 144, status: 200}
+        },
+        label: "csv-test",
+        timestamp: "2026-07-24T00:00:00.000Z"
+    }]);
+    const [header, row] = csv.trim().split("\n");
+    const columns = header.split(",");
+    const values = row.split(",");
+    const valueOf = name => values[columns.indexOf(name)];
+
+    for (const column of ["extended", "root_isolated_status", "root_isolated_ms", "map_ms", "javascript_ms"]) {
+        assert.ok(columns.includes(column), `missing column ${column}`);
+    }
+    assert.equal(valueOf("extended"), "true");
+    assert.equal(valueOf("root_isolated_ms"), "48");
+    assert.equal(valueOf("root_ms"), "156");
+    assert.equal(valueOf("map_ms"), "178");
+    assert.equal(valueOf("javascript_ms"), "377");
 });
 
 test("summaries report failures, percentiles, resource peaks, and minimum memory", () => {
