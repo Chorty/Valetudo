@@ -133,9 +133,31 @@ Docked/video off — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-25T03
 
 Both docked scenarios pass. Comparing them like for like, video-on costs about 3.6 CPU percentage points for `video_monitor`, roughly 18 MB of available memory, and 8% peak load. Isolated latency differs by under 8% in both directions and burst latency by under 5%, so the latency difference between video states is within noise and inside the 20% regression gate. This run was captured while the LAN was being reconfigured; it shows no contamination — zero HTTP failures, an isolated maximum of 126.0 ms, and no sample above 300 ms.
 
-Uptime caveat: the robot rebooted at about 03:10 UTC on 2026-07-25. The cause is stock Dreame firmware maintenance, not Valetudo, the LAN work, or a fault: `/etc/crontabs/root` runs `/usr/bin/check_restart_ava.sh` at 03:00 UTC daily, which sleeps a random 0–7200 seconds, proceeds only if the robot reports idle, then issues `sys_reboot` and reports cloud code 203 ("early-morning reboot offline"). All three boots recorded in `/data/log/fds.log` fall inside that window — Jul 22 04:45, Jul 23 03:14, and Jul 25 03:11 UTC — and the robot was docked and idle each time. Creating `/data/initialize.sh` disables it, which has not been done. Two marker files the script touches were absent afterwards and no `record_common.log` was produced, so the timing fit is strong but not a closed loop. `/sys/fs/pstore` was empty, no kernel panic or OOM was recorded, and AVA, the watchdog, and `sys_monitor` all came back normally. Both corrected-metric runs were therefore captured 24 and 38 minutes after boot, whereas the historical runs had roughly two days of uptime. Absolute latency and memory figures are consequently measured on a fresher system and are not a like-for-like comparison against the historical numbers — available memory was 553–573 MB after the reboot versus 423 MB before it. The isolated-versus-burst separation is unaffected by this, because it is an intra-sample comparison: within the very same samples, isolated p50 was 32.6 ms against a burst p50 of 116.1 ms.
+### Corrected-metric cleaning runs (2026-07-26)
 
-The two cleaning scenarios have not been re-measured under the corrected metric, so the four-scenario benchmark is signed off for the docked scenarios only.
+The user accepted five-minute rather than ten-minute cleaning windows. Both runs contain 60 pure `cleaning`/`segment` samples at five-second intervals; neither includes a return-to-dock tail. This is useful operational evidence with an explicit shortened-duration caveat, not a waiver of the latency thresholds.
+
+Cleaning/video on — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-26T03-59-03-898Z_corrected-cleaning-video-on-5min_iNx4cH`. All 60 samples had video active and every measured endpoint had zero failures.
+
+- `root_isolated_ms` p50/p95/max 146.0/**617.5**/806.1 ms; 9 of 60 samples exceeded 500 ms — fails the 500 ms cleaning gate
+- `root_ms` p50/p95/max 362.7/1412.3/1896.2 ms
+- Minimum available memory 420412 KB; peak one-minute load 20.15
+- AVA averaged 249.6% CPU at 360436 KB peak RSS, Valetudo 45.3% at 91376 KB, and `video_monitor` 7.4% at 9172 KB
+
+Cleaning/video off — `/Users/mattjoslin/Documents/ValetudoProfiles/2026-07-26T04-08-22-092Z_corrected-cleaning-video-off-5min_1XsvUn`. All 60 samples had video inactive and every measured endpoint had zero failures.
+
+- `root_isolated_ms` p50/p95/max 106.5/**554.0**/1377.7 ms; 5 of 60 samples exceeded 500 ms — fails the 500 ms cleaning gate
+- `root_ms` p50/p95/max 309.0/1193.1/1348.7 ms
+- Minimum available memory 441160 KB; peak one-minute load 17.24
+- AVA averaged 256.7% CPU at 360356 KB peak RSS and Valetudo 45.8% at 93784 KB
+
+Video-on versus video-off increased isolated p95 by about 11.5%, burst p95 by 18.4%, peak load by 16.9%, and used about 20 MB more available memory. The video processes consumed about 7.4 aggregate CPU percentage points and 26 MB combined RSS. Video is therefore a measurable but secondary cost, not the primary cause of the cleaning latency.
+
+For a pure-cleaning regression comparison, the first 52 samples of the new runs were matched against the first 52 historical cleaning samples. Burst p95 increased 7.0% with video on (1369.6 to 1465.6 ms) and 12.7% with video off (1069.7 to 1205.0 ms), both inside the 20% regression gate. AVA and Valetudo CPU/RSS remained within 15%. Maploader/video-on and `dmr_player` RSS exceeded 20% proportionally, but only by about 1.7 MB and 2 MB respectively; there was no runtime deployment change between captures. Valetudo and AVA PIDs and the watchdog remained stable, available memory stayed far above 150 MB, and video was restored on after the second run.
+
+The operational checks and burst-regression gates pass, but both cleaning scenarios fail the absolute isolated-latency gate. Four-scenario acceptance is therefore complete in coverage but does not pass cleaning latency.
+
+Uptime caveat: the robot rebooted at about 03:10 UTC on 2026-07-25. The cause is stock Dreame firmware maintenance, not Valetudo, the LAN work, or a fault: `/etc/crontabs/root` runs `/usr/bin/check_restart_ava.sh` at 03:00 UTC daily, which sleeps a random 0–7200 seconds, proceeds only if the robot reports idle, then issues `sys_reboot` and reports cloud code 203 ("early-morning reboot offline"). All three boots recorded in `/data/log/fds.log` fall inside that window — Jul 22 04:45, Jul 23 03:14, and Jul 25 03:11 UTC — and the robot was docked and idle each time. Creating `/data/initialize.sh` disables it, which has not been done. Two marker files the script touches were absent afterwards and no `record_common.log` was produced, so the timing fit is strong but not a closed loop. `/sys/fs/pstore` was empty, no kernel panic or OOM was recorded, and AVA, the watchdog, and `sys_monitor` all came back normally. Both corrected-metric docked runs were therefore captured 24 and 38 minutes after boot, whereas the historical runs had roughly two days of uptime. Absolute latency and memory figures are consequently measured on a fresher system and are not a like-for-like comparison against the historical numbers — available memory was 553–573 MB after the reboot versus 423 MB before it. The isolated-versus-burst separation is unaffected by this, because it is an intra-sample comparison: within the very same samples, isolated p50 was 32.6 ms against a burst p50 of 116.1 ms.
 
 Linux truncates `/proc/<pid>/comm` to 15 characters, so this robot reports the maploader as `maploader-binar`. The profiler accepts both that deployed name and `maploader`; the corrected run measured maploader at 0.026% average CPU and 4400 KB peak RSS.
 
@@ -194,7 +216,14 @@ On 2026-07-25 the TTS and map-management capabilities were exercised directly ag
 
 Two minor API-semantics observations: the 200-character TTS limit and an interrupted TTS job both surface as HTTP 500 rather than 400 and 200/409 respectively. Both guards work correctly; only the status codes are questionable, and neither was changed.
 
-These checks cover the Valetudo capability and its device-side pipeline. They do not exercise the Home Assistant to MQTT to Valetudo command path, which remains untested.
+On 2026-07-26 the authorized Home Assistant → MQTT → Valetudo command path was exercised from the exact live HA entities:
+
+- `switch.valetudo_cleanusmaximus_video_stream` changed Valetudo and HA feedback off, then on; `video_monitor` and go2rtc returned.
+- `notify.valetudo_cleanusmaximus_speak` produced `speaking: true`; `button.valetudo_cleanusmaximus_stop_audio` returned it to false. Cancelling the in-flight MQTT setter produces the already-known MQTT error log for interrupted playback.
+- Mop drying transitioned `idle → drying → idle`, mop-dock cleaning transitioned `idle → cleaning → idle`, and auto-empty transitioned `idle → emptying → idle`, all through HA buttons.
+- `select.vacuum_cleanusmaximus_vacuum_maploader_map` published `main` to `valetudo/CleanusMaximus/maploader/map/set`. Maploader returned idle, the managed-map list remained at 11 slots, the active slot remained `6_rooms_071826_mrqdwbmr` ("6 rooms 071826"), and `/data/config/ava/mult_map.json` retained SHA-256 `1e2ffac9bdf310cedbaf039be05e572f929b34bfd12a9ef671c2d04149126124`.
+
+The first mop-dock-cleaning attempt coincided with a Valetudo MQTT keepalive timeout. HA's service request timed out, the dock stayed idle, Valetudo reconnected and republished discovery automatically, and HA entities were unavailable for about three seconds. MQTT then remained `ready`; the mop-cleaning and drying retries passed. At final verification the robot was docked/idle at 100%, video was on, TTS was idle, Valetudo/AVA/video PIDs and the watchdog were healthy, MQTT was ready, and no map or slot state had changed.
 
 The two vacuum-light automations and `Valetudo: Notifications` are enabled; the notification automation's latest inspected trace completed successfully. The automation named `Vacuum Nightly Front Room Vacuum 11:30` is enabled, but all four of its triggers are individually disabled, so it cannot start automatically until they are re-enabled. That is a Home Assistant configuration finding, not a Valetudo integration failure, and it was not changed automatically.
 
