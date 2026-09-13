@@ -29,8 +29,8 @@ import {
     Hub as ConnectivityIcon,
     SystemUpdateAlt as UpdaterIcon,
     SettingsRemote as SettingsRemoteIcon,
+    Videocam as CameraIcon,
     GitHub as GithubIcon,
-    Favorite as DonateIcon,
     MenuBook as DocsIcon,
     Wysiwyg as SystemInformationIcon,
     Info as AboutIcon,
@@ -41,12 +41,13 @@ import {
 import {Link, useLocation} from "react-router-dom";
 import ValetudoEvents from "./ValetudoEvents";
 import {vacuumstreamerMenuItems} from "./VacuumstreamerMenuItems";
-import {Capability} from "../api";
+import {Capability, useDuststreamingConfigurationQuery} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
     RobotMonochromeIcon,
     SwaggerUIIcon,
-    ValetudoMonochromeIcon
+    ValetudoMonochromeIcon,
+    ValetudoHeartMonochromeIcon
 } from "./CustomIcons";
 
 interface MenuEntry {
@@ -96,7 +97,8 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
                 Capability.ConsumableMonitoring,
                 Capability.ManualControl,
                 Capability.HighResolutionManualControl,
-                Capability.TotalStatistics
+                Capability.TotalStatistics,
+                Capability.Duststreaming
             ],
             type: "anyof"
         }
@@ -135,6 +137,17 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         }
     },
     ...vacuumstreamerMenuItems,
+    {
+        kind: "MenuEntry",
+        route: "/robot/camera",
+        title: "Camera",
+        menuIcon: CameraIcon,
+        menuText: "Camera",
+        requiredCapabilities: {
+            capabilities: [Capability.Duststreaming],
+            type: "allof"
+        }
+    },
     {
         kind: "Subheader",
         title: "Options"
@@ -182,6 +195,12 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         kind: "MenuSubEntry",
         route: "/options/map_management/robot_coverage",
         title: "Robot Coverage Map",
+        parentRoute: "/options/map_management"
+    },
+    {
+        kind: "MenuSubEntry",
+        route: "/options/map_management/spectator",
+        title: "Spectator Map",
         parentRoute: "/options/map_management"
     },
     {
@@ -310,6 +329,15 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
     const currentLocation = useLocation()?.pathname;
     const robotCapabilities = useCapabilitiesSupported(...Object.values(Capability));
 
+    const duststreamingSupported = robotCapabilities[
+        Object.values(Capability).indexOf(Capability.Duststreaming)
+    ];
+
+    const {data: duststreamingConfiguration} = useDuststreamingConfigurationQuery({
+        enabled: duststreamingSupported
+    });
+    const duststreamingEnabled = duststreamingConfiguration?.enabled === true;
+
     //@ts-ignore
     const currentMenuEntry = menuTree.find(element => element.route === currentLocation) ?? menuTree[0];
 
@@ -398,6 +426,11 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                                 );
 
                             case "MenuEntry": {
+                                // This breaks with the menu generation logic and should likely be refactored if it ever gains siblings
+                                if (value.route === "/robot/camera" && !duststreamingEnabled) {
+                                    return null;
+                                }
+
                                 if (value.requiredCapabilities) {
                                     switch (value.requiredCapabilities.type) {
                                         case "allof": {
@@ -517,7 +550,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                         onClick={(e) => e.stopPropagation()}
                     >
                         <ListItemIcon>
-                            <DonateIcon/>
+                            <ValetudoHeartMonochromeIcon/>
                         </ListItemIcon>
                         <ListItemText primary="Donate"/>
                     </ListItemButton>
@@ -526,7 +559,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                 </List>
             </Box>
         );
-    }, [currentLocation, paletteMode, setPaletteMode, robotCapabilities]);
+    }, [currentLocation, paletteMode, setPaletteMode, robotCapabilities, duststreamingEnabled]);
 
     const toolbarContent = React.useMemo(() => {
         switch (currentMenuEntry.kind) {

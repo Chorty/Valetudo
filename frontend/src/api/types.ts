@@ -52,6 +52,7 @@ export enum Capability {
     ObstacleImages = "ObstacleImagesCapability",
     MapManagement = "MapManagementCapability",
     MapAnnotations = "MapAnnotationsCapability",
+    Duststreaming = "DuststreamingCapability",
 }
 
 export type Point = {
@@ -300,7 +301,6 @@ export interface MQTTConfiguration {
     };
     customizations: {
         topicPrefix: string;
-        provideMapData: boolean;
     };
     interfaces: {
         homie: {
@@ -383,6 +383,10 @@ export interface NTPClientConfiguration {
     port: number;
     interval: number;
     timeout: number;
+}
+
+export interface DuststreamingConfiguration {
+    enabled: boolean;
 }
 
 export interface ValetudoEvent {
@@ -634,6 +638,12 @@ export interface ObstacleImagesProperties {
         width: number,
         height: number
     }
+}
+
+export interface DuststreamingProperties {
+    width: number,
+    height: number,
+    duststreamerInstalled: boolean
 }
 
 export type MopDockMopWashTemperature = "cold" | "warm" | "hot" | "scalding" | "boiling";

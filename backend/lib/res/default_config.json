@@ -50,8 +50,7 @@
             }
         },
         "customizations": {
-            "topicPrefix": "",
-            "provideMapData": true
+            "topicPrefix": ""
         },
         "optionalExposedCapabilities": []
     },
@@ -80,6 +79,9 @@
     },
     "oobe": {
         "welcomeDialogDismissed": false
+    },
+    "duststreaming": {
+        "enabled": false
     },
     "valetudo": {
         "customizations": {
