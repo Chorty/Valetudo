@@ -8,6 +8,7 @@ This fork adds camera streaming, text-to-speech, and safe multi-floor map manage
 - **Plugin submodule:** `Chorty/valetudo-vacuumstreamer-plugin`, branch `main`, mounted at `vacuumstreamer-plugin/`
 - **Native companion:** `Chorty/vacuumstreamer`; contains the LD_PRELOAD capture shim, go2rtc support, HTTP bridge, and Home Assistant helpers
 - **Upstream Valetudo:** `Hypfer/Valetudo`; merge into the fork only after reviewing and testing the integration points
+- **Deployed but unmerged (2026-09-13):** parent `feature/vacuumstreamer-switches`, plugin `feature/runtime-switches`, native `feature/runtime-switches`; the upstream-merge test branch is `test/upstream-sync-2026-09`. `MEMORY.md` lists commits and open work.
 
 ## Robot and Access
 
@@ -21,23 +22,32 @@ Never commit SSH keys, passwords, Home Assistant tokens, or MCP credentials. Cre
 
 ## Current Deployed Baseline
 
-- GUI resource/observability PR: `Chorty/Valetudo#7`, merge commit `6a8829ea02257bd8d3314d0d9052655e21f8056f`
-- Static MIME hotfix PR: `Chorty/Valetudo#8`, final merge commit `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
-- Exact-merge GitHub Actions build: run `30062082320`, whose `headSha` matched `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`
-- Active ARM64 binary SHA-256: `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`
-- Latest verified backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321`
-- Backup archive checksum: `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`
-- Immediate on-device rollback binary: `/data/valetudo.predeploy_f1e5a157`
-- Earlier retained rollback binary: `/data/valetudo.predeploy_6a8829ea`
+Deployed 2026-09-13 from a local build; none of it is merged to `master` yet.
 
-The current deployment passed the candidate checksum and automatic-rollback gate, twelve consecutive root/API health checks, exact runtime commit verification, compressed static-asset headers, MQTT connectivity, MCP read-only capability checks, map management, the state SSE stream, joystick zero-motion and disable fail-safes, AVA-priority verification, authenticated Home Assistant configuration/entity/state verification, and an authorized API video stop/start/HLS check. A user-started normal cleaning completed without loss of robot responsiveness, and the robot returned to the dock normally. Keep both Mac backups and both on-device rollback binaries until the remaining benchmark-duration and latency gaps are resolved or explicitly accepted.
+- Valetudo: `feature/vacuumstreamer-switches` at `b589bd6d2a3c8d006dd6859aa910677e199e6e47`, plugin `20545a8c27f9422612bb514b3780f65a31d6e074`; the runtime reports that commit
+- Active ARM64 binary SHA-256: `94b6beb6a8b26d288faaa2345e53b43523bd478c8307d07b16f6b9061bdca1ff`, built from a clean detached clone with the `manual_build.yml` steps
+- Native VacuumStreamer: `feature/runtime-switches` at `6b60354dafcba5dd6e23b6ad3e07ea0a054b382c`; every runtime script, `vacuumstreamer.conf`, `go2rtc.yaml` and `/data/_root_postboot.sh` on the robot matches that commit
+- Backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_b589bd6d_20260913`, sealed with `SHA256SUMS.txt`. It holds the `/data`, `/mnt/private` and `/mnt/misc` archive verified file by file, raw images of every partition except `UDISK`, the U-Boot environment, the factory identity in the decrypted private partition, SSH keys, and the artifact. `DEPLOY_RECORD.txt` records the stages, fixes and profiles. The package contains device secrets and SSH keys; keep it private
+- On-device rollback files: `/data/valetudo.predeploy_b589bd6d` (the `f1e5a157` binary `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`), `/data/_root_postboot.sh.predeploy_b589bd6d` and `/data/vacuumstreamer/go2rtc.yaml.predeploy_b589bd6d`. To roll back, copy them over the originals and reboot
+- Older rollback binaries remain in `/data`, including `predeploy_f1e5a157` and `predeploy_6a8829ea`
+
+The deployment passed an on-robot 60-second health gate, a reboot gate of 12 consecutive checks with automatic rollback armed, and runtime commit verification. On the robot the camera stops capturing after 180 s without a viewer, wakes to H.264 stream info in about 3.6 s, pauses and resumes through the Valetudo API, recovers from a `video_monitor` crash in under 1.2 s, and recovers from a frozen `video_monitor` in about 27 s by escalating to KILL. Home Assistant has not been re-verified with a token since this deployment.
+
+### Previous baseline
+
+`f1e5a157` (PR #8, merge commit `f1e5a1575df4e472aa98ade4ade4cde7d5b50fb0`), binary `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5` from exact-merge Actions run `30062082320`, backup `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321` (archive `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`). It passed the candidate checksum and rollback gate, twelve root/API health checks, runtime commit verification, compressed static-asset headers, MQTT, MCP read-only checks, map management, the state SSE stream, joystick zero-motion and disable fail-safes, AVA priority, authenticated Home Assistant checks, video stop/start/HLS, and a user-started cleaning. PR #9 (`eafdf8e8259c9824dc8c94e5b060a998e9b217a7`) merged documentation and source but was never deployed on its own.
 
 ## Safe Build and Deployment
 
-Build from the exact commit intended for deployment:
+Build deployment artifacts from a clean clone checked out detached at the exact commit. `util/generate_build_metadata.js` records the commit only from a detached or `master` checkout, so worktree and feature-branch builds report `unknown`. The plugin commit must be reachable, for example by pointing the submodule URL at the local plugin repository.
 
 ```bash
+git clone --no-checkout /Users/mattjoslin/Documents/GitHub/Valetudo build-clone
+cd build-clone
+git checkout --detach <commit>
+git submodule update --init
 npm ci
+npm run build_openapi_schema
 npm run lint_all
 npm run ts-check_all
 npm test --workspace=backend
@@ -45,16 +55,29 @@ npm run build --workspace=frontend
 npm run build_aarch64 --workspace=backend
 ```
 
+`build_openapi_schema` is required: without `backend/lib/res/valetudo.openapi.schema.json`, Valetudo logs a warning and turns off API payload validation. Confirm that `backend/lib/res/build_metadata.json` names the commit and that pkg printed no warnings. A fresh checkout also needs `npm run generate_midea_protobufs --workspace=backend` before lint or type checks; the ARM64 build runs it itself. CI uploads the uncompressed aarch64 binary, not the `.upx` copy.
+
 Before deployment:
 
 1. Record the source commit and built artifact SHA-256.
-2. Create and integrity-check a timestamped local backup of `/data`, `/mnt/private`, and `/mnt/misc`.
-3. Preserve the active binary on the robot.
-4. Upload the new binary under a candidate filename and verify its remote checksum.
-5. Activate it through the established 60-second HTTP health gate with automatic rollback.
-6. Verify root and API HTTP 200 responses, MQTT/Home Assistant availability, watchdog stability, map management, joystick stop behavior, and video start/stop.
+2. Create and integrity-check a timestamped local backup of `/data`, `/mnt/private`, and `/mnt/misc`, verifying every file against an on-robot SHA-256 manifest.
+3. Back up what a full reload would need: raw images of the named partitions except `UDISK`, the decrypted `/dev/mapper/private` view (the mounted `/mnt/private` is VacuumStreamer's bind-mounted copy), the U-Boot environment, the Mac SSH key and config, and the robot's dropbear host keys and `authorized_keys`.
+4. Preserve the active binary on the robot, and the boot script and `go2rtc.yaml` when they change.
+5. Upload the new binary under a candidate filename and verify its remote checksum.
+6. Activate it through the on-robot 60-second HTTP health gate with automatic rollback.
+7. When the boot path changes, reboot and gate again with rollback of the binary, boot script and `go2rtc.yaml`.
+8. Verify root and API HTTP 200 responses, MQTT/Home Assistant availability, watchdog stability, map management, joystick stop behavior, and camera wake, pause and resume.
 
 Do not replace `/data/valetudo` directly without a fresh backup, candidate checksum verification, and rollback path.
+
+### Robot shell notes
+
+- BusyBox 1.36 `flock` has no `-w`; poll `flock -n` instead. `killall` accepts `-SIGNAL` and fails when nothing matches. `jq`, `nc` and `socat` are absent.
+- The robot boots with its clock at 1970 and syncs later, so time runtime state from `/proc/uptime`.
+- A remote command that searches `ps` output must not contain the literal name it searches for, or it matches and can kill its own shell. Use a bracket pattern such as `[c]amera_supervisor[.]sh`.
+- `/proc/net/tcp` lists IPv4 sockets and `/proc/net/tcp6` IPv6 sockets; go2rtc listens on IPv6 and `video_monitor` on IPv4.
+- Valetudo state attributes place `"metaData":{}` between `__class` and `value`; parse the JSON instead of matching text.
+- Test stubs for robot commands must reject options BusyBox lacks.
 
 ## GUI Resource Profiling
 
@@ -163,11 +186,27 @@ Linux truncates `/proc/<pid>/comm` to 15 characters, so this robot reports the m
 
 Set `VALETUDO_SLOW_REQUEST_MS=500` only during an acceptance deployment to log privacy-safe warnings for HTTP responses taking at least 500 ms. The variable defaults to `0` (disabled) and accepts `0` or an integer from 100 through 60000. Telemetry excludes SSE and log-content routes and never logs queries, bodies, headers, client addresses, or credentials.
 
+### Runtime-switches profiles (2026-09-13)
+
+Ten-minute docked profiles of the `b589bd6d` deployment, compared with the 2026-07-25 baselines:
+
+| Scenario | Isolated p95 | Burst `root_ms` p95 | Gates |
+|---|---|---|---|
+| RTSP viewer watching | 96.2 ms | 193.5 vs 166.5 (+16%) | All pass |
+| `CAMERA_MODE=always`, nobody watching | 119.4 ms | 163.4 vs 166.5 (−2%) | All pass |
+| `on_demand`, nobody watching, original supervisor | 105.1 ms / 115.9 ms | +90% / +68% | Burst gate fails |
+| Same, supervisor frozen | 108.4 ms | 160.4 vs 158.8 (+1%) | Burst gate passes |
+| Same, builtin supervisor (`5ff77bc`, deployed) | 111.2 ms | 180.1 vs 158.8 (+13%) | Burst gate passes; Valetudo CPU gate fails, see below |
+
+The original supervisor started about 20 processes every five seconds, which delayed Valetudo's HTTP handling. The builtin rewrite starts only two `pidof` processes per idle check and cut supervisor CPU from 3.03% to 1.35% of one core. Watching costs about 6.5% CPU for `video_monitor` and 2.4% for go2rtc.
+
+Valetudo's own CPU rises with uptime while docked: about 4.5% for the first hour after boot, 6.3% after 3 hours, and 8.5–9.7% after 3.5 hours with the same PID and flat RSS. The `f1e5a157` build did the same, reaching 36–49% after about two days on 2026-07-25. The nightly Dreame reboot resets it. Because the 2026-07-25 baselines were captured 24–38 minutes after boot, compare CPU only at matched uptime. The cause has not been investigated. Profile directories are in `DEPLOY_RECORD.txt`.
+
 ## Plugin Capabilities
 
 | Capability | Purpose |
 |---|---|
-| `VideoStreamCapability` | Starts/stops the VacuumStreamer and go2rtc pipeline and reports stream status and URLs |
+| `VideoStreamCapability` | Starts and pauses the camera through native `camera_ctl.sh` (on-demand capture) and reports stream status and URLs; installs without `camera_ctl.sh` start the binaries directly |
 | `TextToSpeechCapability` | Speaks text, plays an approved local audio file, stops playback, and reports status |
 | `MapManagementCapability` | Saves, restores, renames, imports, exports, and deletes local floor-map slots |
 
@@ -181,9 +220,9 @@ All paths are below `/api/v2/robot/capabilities`.
 
 ### Video stream
 
-- `GET /VideoStreamCapability` — status
+- `GET /VideoStreamCapability` — status: `active` when the stream can be watched, plus `capturing`, `paused`, `mode` and process IDs
 - `GET /VideoStreamCapability/urls` — RTSP, WebRTC, HLS, and go2rtc URLs
-- `PUT /VideoStreamCapability` with `{"action":"start"}` or `{"action":"stop"}`
+- `PUT /VideoStreamCapability` with `{"action":"start"}` or `{"action":"stop"}`; `stop` pauses the camera until `start` or a reboot, and a refused `start` returns the native script's reason
 
 ### Text to speech
 
@@ -208,7 +247,7 @@ With Valetudo MQTT and Home Assistant autodiscovery enabled, the plugin adds:
 - a TTS `notify` entity, speaking-state diagnostic sensor, and stop-audio button;
 - a video-stream switch and disabled-by-default RTSP/WebRTC URL sensors.
 
-The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video.
+The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video. Since the 2026-09-13 deployment the video switch resumes or pauses the camera, and with on-demand capture it stays on while the camera waits for a viewer. Home Assistant has not been re-verified with a token since that change.
 
 The authenticated 2026-07-24 live verification found MQTT, MQTT Vacuum Camera, and Valetudo configured without failed setup and attached to the same `Vacuum CleanusMaximus` device. The device exposed 52 entities, including maploader, dock actions, TTS, stop-audio, video, and robot-quirk controls; the RTSP and WebRTC URL sensors were the only disabled entities and are disabled by default. Home Assistant reflected the authorized API video stop/start, both video processes returned, the HLS master playlist returned HTTP 200, and a temporary encoded-stream sample measured approximately 15.02 FPS. HA-originated TTS, dock, maploader, and other state-changing entity commands were not exercised during this verification.
 
@@ -242,13 +281,60 @@ Environment variables:
 
 Leave username/password unset while Valetudo Basic Auth is disabled. For remote clients, tunnel through a trusted LAN host with `ssh -N -L 8080:192.168.1.31:80 <lan-host>` and point MCP at `127.0.0.1:8080`. See `mcp-server/README.md` for configuration and tool inventory.
 
-## Native VacuumStreamer Prerequisites
+## Native VacuumStreamer
 
-- `/data/vacuumstreamer/vacuumstreamer.so`
-- `/data/vacuumstreamer/go2rtc`
-- `/data/vacuumstreamer/go2rtc.yaml`
+Required on the robot:
+
+- `/data/vacuumstreamer/vacuumstreamer.so`, `video_monitor`, `go2rtc`, `go2rtc.yaml` and `ffmpeg`
 - `/data/vacuumstreamer/tts_handler.sh`, launched through `tcpsvd` on port 6971
-- `ffmpeg` when audio conversion is required
+- Runtime scripts from `Chorty/vacuumstreamer` `feature/runtime-switches`: `vacuumstreamer_lib.sh`, `vacuumstreamer_boot.sh`, `go2rtc_launch.sh`, `video_monitor_launch.sh`, `camera_wake.sh`, `camera_supervisor.sh` and `camera_ctl.sh`
+- `/data/vacuumstreamer/vacuumstreamer.conf`, installed once and never overwritten by later deployments
+
+### Runtime switches
+
+`vacuumstreamer.conf` holds `CAMERA`, `CAMERA_MODE` (`on_demand` or `always`), `CAMERA_IDLE_SECONDS` (default 180), `CAMERA_LOGIN` (default off), `TTS`, `MAP_MANAGEMENT` and `HTTP_BRIDGE`. The file is parsed, never executed. The boot script and the plugin both read it, and a switched-off capability is not registered. Reboot after changing a switch. Deployed values: everything on, `CAMERA_MODE=on_demand`, login off.
+
+### Camera lifecycle
+
+- go2rtc runs while the camera is on. Its video source is `echo:/data/vacuumstreamer/camera_wake.sh`, which starts `video_monitor` when a viewer connects and returns `tcp://127.0.0.1:6969`.
+- `camera_supervisor.sh` checks every 5 s. It restarts go2rtc with backoff, stops `video_monitor` after `CAMERA_IDLE_SECONDS` without a viewer, keeps it running with `CAMERA_MODE=always`, and restarts it, escalating to KILL, when a connected stream receives no video for 20 s. An idle check starts only two `pidof` processes.
+- `camera_ctl.sh start|stop|status` is what Valetudo calls. `stop` pauses the camera until `start` or a reboot, even while a viewer retries.
+- Logs go to `/tmp/vacuumstreamer.log` and runtime state to `/tmp/vacuumstreamer/`.
+- Run the script tests with `sh test/run_tests.sh dash` in the native repository.
+
+### Camera login
+
+`CAMERA_LOGIN=on` protects go2rtc's API and RTSP with credentials that go2rtc reads through `CREDENTIALS_DIRECTORY` from `/data/vacuumstreamer/credentials/GO2RTC_USERNAME` and `GO2RTC_PASSWORD`. The directory must be mode 700 and the files 600; values may use letters, digits, `.`, `_`, `~` and `-`, and the password needs at least 16 characters. Misconfigured credentials stop the camera instead of running it without a login. Requests from the robot itself are not challenged. The native README covers setup and client URLs.
+
+## Security Review Status
+
+The Codex Security Deep Scan started on 2026-08-08 against source commit `706d43ff0c41c34523488dac1e60abac3a11b83d` after its configuration preflight passed. The Python helper issue was resolved by setting `PYTHON = "/opt/homebrew/bin/python3"` in the Codex `shell_environment_policy.set` configuration.
+
+The scan did **not** complete. Its repeated discovery command dispatched 17 independent discovery sessions; 10 results were accepted and seven sessions were canceled. The coordinator then terminated discovery after three consecutive workers hit the account usage limit. No successful terminal discovery handoff was accepted, and centralized validation, attack-path analysis, canonical draft recording, completion, and generated `report.md` never ran. Partial candidate artifacts are discovery evidence only: do not treat them as validated findings or as evidence that the repository has no findings.
+
+The original logical scan is stopped and cannot be finalized as a canonical Deep Scan: its temporary scan directory was cleaned up and its coordinator state is lost.
+
+Salvage recovery on 2026-08-13 found that one repository-wide discovery pass had completed its full 955-file, roughly 99,518-line coverage ledger and retained ten plausible candidates: secret-bearing log exposure, runtime environment disclosure, four voice-pack SSRF variants, VacuumStreamer TTS shell injection, MCP plaintext Basic Auth, MCP response-body resource exhaustion, and an updater trust/checksum weakness. None has been validated or assigned a severity.
+
+A focused salvage-validation pass against `706d43ff` began the same day. It classifies each candidate by attacker-controlled source, reachable sink, missing control, product boundary, and impact, with bounded tests planned for the TTS command construction and MCP behaviors. It paused before writing any salvage artifact, validation receipt, or report, and nothing is running. The candidates survive only in the Codex thread history recorded in `MEMORY.md`. Completing that pass, estimated at 15,000–30,000 tokens, will produce a clearly labeled non-canonical salvage report; a new Standard or Deep Scan is needed only for a canonical result.
+
+### Exposures found 2026-09-13
+
+These are confirmed from source and configuration, separate from the unvalidated scan candidates above:
+
+- While `CAMERA_LOGIN=off`, go2rtc's API on port 1984 is open to the LAN. `POST /api/config` rewrites go2rtc's configuration, which can add command-running sources, and `/api/restart` applies it, so any device on the network could run commands as root on the robot. The login was verified against a local go2rtc 1.9.9 build: 401 without or with wrong credentials, 200 with them, and no secret in `/api/config` or process arguments.
+- The port 6971 HTTP bridge (`tts_handler.sh`) has no authentication and can drive the robot, start cleaning and reset consumables. `HTTP_BRIDGE=off` disables it.
+- Valetudo Basic Auth is disabled.
+
+## Agent Session History
+
+Work on this repository has happened in Codex threads in VS Code and, since 2026-09-13, in Claude Code. Before continuing earlier work, find the newest session rather than assuming these docs are current:
+
+- Codex transcripts: `~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<session-id>.jsonl`
+- Codex thread names: `~/.codex/session_index.jsonl`
+- Claude Code transcripts: `~/.claude/projects/-Users-mattjoslin-Documents-GitHub-Valetudo/`
+
+Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-13 the latest working session is Claude Code session `a53fcc89-ed26-475f-b8f4-efa3d70a7db1`, which built, deployed and profiled the runtime switches. The latest Codex thread is `Verify corrected GUI profiling - Valetudo REV 2` (`019fe4b0-785e-73b2-bfc3-c14a513e9cf4`). `MEMORY.md` records both.
 
 ## Development Rules
 
@@ -258,6 +344,8 @@ Leave username/password unset while Valetudo Basic Auth is disabled. For remote 
 - Preserve safe filesystem allowlists and joystick zero-motion/disable fail-safes.
 - Treat backup directories, firmware extracts, binaries, `.DS_Store`, keys, and credentials as local artifacts, not source files.
 - Review `git status` in the parent, plugin, and native companion independently.
+- Test robot shell scripts against BusyBox behavior, and run the native script tests under `dash`.
+- Build deployment artifacts from a clean clone checked out detached at the deployed commit.
 
 ## Upstream Synchronization
 
@@ -267,6 +355,8 @@ git merge origin/master
 ```
 
 In this checkout, `origin` is Hypfer's upstream and `fork` is Chorty's fork. Re-run lint, type checks, tests, production frontend build, and ARM64 packaging after every upstream integration.
+
+`test/upstream-sync-2026-09` (`5d36af0a`, pushed) merges upstream through `5772c9c3`, which includes the 2026.08.0 release, into `master` at `eafdf8e8`. The only conflict was an import in `ValetudoAppBar.tsx`, and lint, type checks, tests and the frontend build pass. It predates the runtime-switches branch and has not been tested on the robot. Before merging it, check manual control stop and disable, the wider resumable flag, the Dreame map ID used for floor materials, and MQTT map data now that `provideMapData` is gone. Leave upstream's Duststreaming off: its driver can hard-lock the kernel. The L10S `VACUUM_THEN_MOP` preset is missing from both `master` and upstream.
 
 ## Known Harmless Warnings
 
