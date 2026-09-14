@@ -18,6 +18,7 @@ The native companion's former untracked backups, extracted device data, and buil
 
 - Deployed 2026-09-13: Valetudo `b589bd6d2a3c8d006dd6859aa910677e199e6e47` with plugin `20545a8c27f9422612bb514b3780f65a31d6e074`, binary SHA-256 `94b6beb6a8b26d288faaa2345e53b43523bd478c8307d07b16f6b9061bdca1ff`; native VacuumStreamer `6b60354dafcba5dd6e23b6ad3e07ea0a054b382c`
 - Backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_b589bd6d_20260913` (sealed; see `BACKUP_INFO.txt` and `DEPLOY_RECORD.txt`); contains device secrets and SSH keys
+- Active binary since the forced-GC fix: `d2b81c8b`, SHA-256 `d813e0ff388fbb70d65469577cd62a4a1e88830983bde6bbb3d6b308110a8a1a`; its rollback is `/data/valetudo.predeploy_d2b81c8b` (see "2026-09-13 Deployment")
 - On-device rollback: `/data/valetudo.predeploy_b589bd6d`, `/data/_root_postboot.sh.predeploy_b589bd6d`, `/data/vacuumstreamer/go2rtc.yaml.predeploy_b589bd6d`; copy them back and reboot
 - Previous baseline: `f1e5a157`, binary `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`, Actions run `30062082320`, backup `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321` (archive `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`)
 - Robot access: `ssh vacuum` using the private key configured outside Git
@@ -30,6 +31,8 @@ The native companion's former untracked backups, extracted device data, and buil
 - Verified on the robot: idle stop after 180 s, cold wake about 3.6 s, pause and resume through the API, crash recovery under 1.2 s, frozen-process recovery about 27 s.
 - Profiles: watched and always-mode pass every gate. With nobody watching, the original supervisor caused a +90%/+68% burst regression; the builtin supervisor passes at +13% and uses 1.35% of one core instead of 3.03%.
 - Valetudo CPU rises with uptime (about 4.5% after boot to 8.5–9.7% after 3.5 hours; 36–49% after two days on `f1e5a157`), which predates this deployment. The latest idle profile fails the Valetudo CPU gate only because its baseline was taken 24–38 minutes after boot.
+- Root cause (upstream code, still in upstream master): `Valetudo.js` forced a full GC every 2.5 s once RSS exceeded the heap limit + 10 MiB (74 MiB), but RSS includes ~22 MiB of file-backed executable pages no GC can free. At 6.4 h: RSS 78.5 MiB (56.3 anon + 22.2 file), Valetudo 32.5% of one core. A Valetudo restart dropped it to 3.9%.
+- Fix `d2b81c8b` (`ForcedGcPolicy`: trigger on heapUsed + external over the heap limit, back off to 60 s while ineffective) deployed through the binary gate: artifact `d813e0ff388fbb70d65469577cd62a4a1e88830983bde6bbb3d6b308110a8a1a`, package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_d2b81c8b_20260913` (sealed, with `DEPLOY_RECORD.txt`), rollback `/data/valetudo.predeploy_d2b81c8b` (restores `b589bd6d`). Two minutes after deploy: 2.8% CPU, RSS 65.6 MiB, MQTT ready, camera idle.
 - Home Assistant was not re-verified with a token; its video switch now pauses and resumes the camera.
 
 ## Verified Integration State (f1e5a157 era)
@@ -78,9 +81,9 @@ Checked 2026-09-13. Work has happened in Codex threads in VS Code and, since 202
 
 ## Open Work
 
-1. Investigate Valetudo's CPU growth with uptime (about 4.5% after boot, 8.5–9.7% after 3.5 hours, 36–49% after two days on `f1e5a157`). The nightly reboot resets it, and it may explain the cleaning-latency failures.
-2. Security: turn on `CAMERA_LOGIN`, create the credentials, and update Home Assistant's camera URLs. go2rtc's API is open to the LAN until then.
-3. Security: add authentication to the port 6971 bridge or set `HTTP_BRIDGE=off`.
+1. Confirm the forced-GC fix (`d2b81c8b`) after several hours of uptime, once RSS passes the old 74 MiB trigger: CPU should stay near the fresh-start level with no 2.5 s burst cadence. Then offer it upstream.
+2. Security: turn on `CAMERA_LOGIN`. Blocked on where the generated password is stored (writing it to the macOS keychain was not permitted in the session). Home Assistant references, found through the API with `HA_TOKEN`: the Generic camera entry `camera.192_168_1_31_2` (set its username and password fields; Generic inserts them into the RTSP URL); `dashboard-cleaning` advanced-camera-card with `go2rtc.url: http://192.168.1.31:1984` (a browser cannot send go2rtc credentials, so switch it to play through Home Assistant); stale `camera.192_168_1_31` references in `dashboard-cleaning` and `dashboard-yard`.
+3. Security: port 6971 bridge. Recommended: first restrict it to the Home Assistant host (192.168.1.106) in `tts_handler.sh`, and fix the TTS shell-injection candidate; later move Home Assistant to native Valetudo/MQTT entities and set `HTTP_BRIDGE=off`.
 4. Security: resume the paused salvage validation of the 10 scan candidates in the Codex thread, or run a new scan.
 5. Re-verify Home Assistant with a token: video switch pause and resume, URL sensors, camera stream, TTS and dock actions.
 6. Capture new docked baselines at matched uptime, plus user-started cleaning profiles, so CPU gates compare like for like.
@@ -90,7 +93,7 @@ Checked 2026-09-13. Work has happened in Codex threads in VS Code and, since 202
 10. Upstream sync: test `test/upstream-sync-2026-09` on the robot, reconcile it with the runtime-switches work, then open a pull request.
 11. Restore the missing L10S `VACUUM_THEN_MOP` preset (open PR #1; merged PR #2's change was lost from `master`).
 12. Fix the pre-existing ESLint errors in 8 plugin files and consider linting the plugin in CI.
-13. After acceptance, prune older on-device rollback binaries (keep `predeploy_b589bd6d`) and old backup packages.
+13. After acceptance, prune older on-device rollback binaries (keep `predeploy_d2b81c8b` and `predeploy_b589bd6d`; the rest are ~480 MB that every robot backup archives) and old backup packages. The Mac had under 1 GB free on 2026-09-13, which made a robot backup fail.
 14. The robot's `valetudo_watchdog.sh` sets `VALETUDO_SLOW_REQUEST_MS=500` permanently, unlike the repository copy; decide which is intended.
 15. `util/generate_build_metadata.js` records the commit only for `master` or detached checkouts; other builds report `unknown`.
 16. The cleaning-latency gate (`root_isolated_ms` p95 ≤ 500 ms) still fails from 2026-07-26.
