@@ -18,7 +18,8 @@ The native companion's former untracked backups, extracted device data, and buil
 
 - Deployed 2026-09-13: Valetudo `b589bd6d2a3c8d006dd6859aa910677e199e6e47` with plugin `20545a8c27f9422612bb514b3780f65a31d6e074`, binary SHA-256 `94b6beb6a8b26d288faaa2345e53b43523bd478c8307d07b16f6b9061bdca1ff`; native VacuumStreamer `6b60354dafcba5dd6e23b6ad3e07ea0a054b382c`
 - Backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_b589bd6d_20260913` (sealed; see `BACKUP_INFO.txt` and `DEPLOY_RECORD.txt`); contains device secrets and SSH keys
-- Active binary since the forced-GC fix: `d2b81c8b`, SHA-256 `d813e0ff388fbb70d65469577cd62a4a1e88830983bde6bbb3d6b308110a8a1a`; its rollback is `/data/valetudo.predeploy_d2b81c8b` (see "2026-09-13 Deployment")
+- Active since 2026-09-14: Valetudo `0a1c32f6` (plugin `cd18818`), SHA-256 `88d2e284a83a41293e2c51418f2accd577226ac7d1a338afe82bb9bf55e3e21a`, native `1d0b187`; package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_0a1c32f6_20260914` (sealed, `DEPLOY_RECORD.txt`); rollback: every `*.predeploy_0a1c32f6` file (binary, `_root_postboot.sh`, `/data/vacuumstreamer/*`), then reboot
+- Previous: `d2b81c8b` (forced-GC fix), SHA-256 `d813e0ff388fbb70d65469577cd62a4a1e88830983bde6bbb3d6b308110a8a1a`; its rollback is `/data/valetudo.predeploy_d2b81c8b` (see "2026-09-13 Deployment")
 - On-device rollback: `/data/valetudo.predeploy_b589bd6d`, `/data/_root_postboot.sh.predeploy_b589bd6d`, `/data/vacuumstreamer/go2rtc.yaml.predeploy_b589bd6d`; copy them back and reboot
 - Previous baseline: `f1e5a157`, binary `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`, Actions run `30062082320`, backup `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_f1e5a157_20260723_224321` (archive `0ae1689204a0d9b4e95203fdc127d23952f984fe58b167461d1401895aaf37f8`)
 - Robot access: `ssh vacuum` using the private key configured outside Git
@@ -81,9 +82,9 @@ Checked 2026-09-13. Work has happened in Codex threads in VS Code and, since 202
 
 ## Open Work
 
-1. Confirm the forced-GC fix (`d2b81c8b`) after several hours of uptime, once RSS passes the old 74 MiB trigger: CPU should stay near the fresh-start level with no 2.5 s burst cadence. Then offer it upstream.
+1. Offer the forced-GC fix (`d2b81c8b`, `ForcedGcPolicy`) upstream. Confirmed on 2026-09-14 at 15.8 h uptime: RSS 83.3 MiB (past the old 74 MiB trigger), 2.5% of one core over 60 s, 0 GC bursts, lifetime average 2.0% (was 32.5% at 6.4 h).
 2. Security: turn on `CAMERA_LOGIN`. Blocked on where the generated password is stored (writing it to the macOS keychain was not permitted in the session). Home Assistant references, found through the API with `HA_TOKEN`: the Generic camera entry `camera.192_168_1_31_2` (set its username and password fields; Generic inserts them into the RTSP URL); `dashboard-cleaning` advanced-camera-card with `go2rtc.url: http://192.168.1.31:1984` (a browser cannot send go2rtc credentials, so switch it to play through Home Assistant); stale `camera.192_168_1_31` references in `dashboard-cleaning` and `dashboard-yard`.
-3. Security: port 6971 bridge. Recommended: first restrict it to the Home Assistant host (192.168.1.106) in `tts_handler.sh`, and fix the TTS shell-injection candidate; later move Home Assistant to native Valetudo/MQTT entities and set `HTTP_BRIDGE=off`.
+3. Security: port 6971 bridge, stage 2. Stage 1 is live (2026-09-14): `HTTP_BRIDGE_ALLOW=192.168.1.106` on the robot, other clients get 403, and the plugin TTS commands run without a shell. Next: move Home Assistant's bridge calls to native Valetudo/MQTT entities (driving and obstacle photos have no equivalent yet) and set `HTTP_BRIDGE=off`. Audible TTS playback on `0a1c32f6` is covered by tests but not yet heard.
 4. Security: resume the paused salvage validation of the 10 scan candidates in the Codex thread, or run a new scan.
 5. Re-verify Home Assistant with a token: video switch pause and resume, URL sensors, camera stream, TTS and dock actions.
 6. Capture new docked baselines at matched uptime, plus user-started cleaning profiles, so CPU gates compare like for like.
@@ -93,7 +94,7 @@ Checked 2026-09-13. Work has happened in Codex threads in VS Code and, since 202
 10. Upstream sync: test `test/upstream-sync-2026-09` on the robot, reconcile it with the runtime-switches work, then open a pull request.
 11. Restore the missing L10S `VACUUM_THEN_MOP` preset (open PR #1; merged PR #2's change was lost from `master`).
 12. Fix the pre-existing ESLint errors in 8 plugin files and consider linting the plugin in CI.
-13. After acceptance, prune older on-device rollback binaries (keep `predeploy_d2b81c8b` and `predeploy_b589bd6d`; the rest are ~480 MB that every robot backup archives) and old backup packages. The Mac had under 1 GB free on 2026-09-13, which made a robot backup fail.
+13. After acceptance, prune older on-device rollback binaries (keep `predeploy_0a1c32f6` and `predeploy_d2b81c8b`; the rest are ~480 MB that every robot backup archives) and old backup packages. The Mac had under 1 GB free on 2026-09-13, which made a robot backup fail.
 14. The robot's `valetudo_watchdog.sh` sets `VALETUDO_SLOW_REQUEST_MS=500` permanently, unlike the repository copy; decide which is intended.
 15. `util/generate_build_metadata.js` records the commit only for `master` or detached checkouts; other builds report `unknown`.
 16. The cleaning-latency gate (`root_isolated_ms` p95 ≤ 500 ms) still fails from 2026-07-26.
