@@ -56,6 +56,9 @@
           "updater": {
             "$ref": "#/components/schemas/UpdaterConfigDTO"
           },
+          "duststreaming": {
+            "$ref": "#/components/schemas/DuststreamingConfigDTO"
+          },
           "timers": {
             "type": "object"
           },
@@ -221,10 +224,6 @@
               "topicPrefix": {
                 "type": "string",
                 "description": "You can override the default \"valetudo\" mqtt topic prefix if you e.g. prefer to group all your mqtt stuff by rooms/floors/protocols"
-              },
-              "provideMapData": {
-                "type": "boolean",
-                "description": "If for some reason you're not interested in receiving map data via MQTT, you can disable that here."
               }
             }
           },
@@ -342,6 +341,18 @@
         }
       },
       "NetworkAdvertisementConfigDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DuststreamingConfigDTO": {
         "type": "object",
         "additionalProperties": false,
         "required": [
