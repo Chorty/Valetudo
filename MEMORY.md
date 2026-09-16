@@ -10,7 +10,7 @@ Last updated: 2026-09-16
 | VacuumStreamer plugin | `vacuumstreamer-plugin/` | Deployed `eaf1551`, on `main` via PR #5 (merge `f54b23b`) | `Chorty/valetudo-vacuumstreamer-plugin` |
 | Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | Deployed `1d0b187`, on `master` via PR #1 (`feature/alarm-sentry`) and PR #2 (merge `f68214f`) | `Chorty/vacuumstreamer` |
 
-On 2026-09-16 every deployed branch was merged into its default branch; only the parent's `sync/upstream-2026-09-16` awaits its PR.
+On 2026-09-16 every deployed branch was merged into its default branch, including the upstream sync (PR #11, `master` `23db0322`). `agent/final-gui-resource-acceptance` and `test/upstream-sync-2026-09` were deleted.
 
 The native companion's former untracked backups, extracted device data, and build artifacts were moved intact to `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234`. Its 16,330-entry manifest has SHA-256 `2fff74550715713760b9ca9c5bb07ff434e1c86e296e0b44a26d6ea9df0712ec`.
 
@@ -106,10 +106,10 @@ just the closure log so Open Work below stays focused on what's still open.
 
 ## Open Work, by importance
 
-1. **Restore the missing L10S `VACUUM_THEN_MOP` preset.** A real functional regression, not a process task: this cleaning mode was merged once (PR #2) and then lost from `master`; PR #1 is still open with the fix.
+1. **Verify the L10S `VACUUM_THEN_MOP` preset on the robot before restoring it.** Upstream deliberately removed `VACUUM_THEN_MOP: 3` from this model in `e42adcb7` (March 2025) while reworking vacuum-then-mop. PR #1, a one-line Copilot re-add without robot evidence, was closed unmerged on 2026-09-16; branches `copilot/fix-4d4a22c8-…` and `codex/reimplement-vacuum-then-mop-mode` are kept. It needs a user-started cleaning with preset 3 that vacuums first and then mops; if that works, reopen PR #1 and rebase it.
 2. **Port 6971 bridge, stage 2.** Stage 1 (IP allowlist) is live and closes most of the exposure. Left: move Home Assistant's remaining bridge calls to native Valetudo/MQTT entities (driving and obstacle photos have no equivalent yet) and set `HTTP_BRIDGE=off`.
 3. **Cleaning-latency re-test** (on hold -- the user asked to hold off on starting cleanings). Docked baselines already pass every gate on the current build; the CPU fix plausibly also fixes the `root_isolated_ms` p95 ≤ 500 ms cleaning gate that's been failing since 2026-07-26, but that needs two real user-started cleanings (camera idle, camera watched) to confirm.
-4. **Merge `sync/upstream-2026-09-16` into `master`.** It is deployed and verified on the robot; open the PR and merge once CI passes. Not yet exercised on the robot: joystick movement with upstream's disable-calls-stop change, and segment material writes with the new `curid` map ID.
+4. **Exercise the remaining upstream-sync changes on the robot.** The sync is merged (PR #11, `23db0322`) and deployed. Still untried on the robot: joystick movement with upstream's disable-now-stops change, and segment material writes with the new `curid` map ID.
 5. **Upstream sync going forward.** `origin` is Hypfer. Merge onto `master`, keep `ForcedGcPolicy` unless upstream adopts an equivalent, and expect no map after a docked binary-only restart until a reboot.
 6. **Watchdog `VALETUDO_SLOW_REQUEST_MS` decision.** The robot's `valetudo_watchdog.sh` sets it to `500` permanently; the repo copy defaults to `0` (off), and CLAUDE.md says it's meant only for acceptance-deployment telemetry. Decide whether to turn it off on the robot or make `500` the intended default.
 7. **Housekeeping: prune old on-device rollback binaries and old Mac backup packages.** Lower urgency now that the Mac has ~18 GB free again (it was under 1 GB on 2026-09-13, which is what made a backup fail that day). Keep `predeploy_secrets0916` and one or two before it; the rest are ~480 MB+ that every future robot backup re-archives.
