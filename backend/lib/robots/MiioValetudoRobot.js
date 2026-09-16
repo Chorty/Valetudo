@@ -497,8 +497,11 @@ class MiioValetudoRobot extends ValetudoRobot {
     startup() {
         Logger.info("DeviceId " + this.deviceId);
         Logger.info("IP " + this.ip);
-        Logger.info("CloudSecret " + this.cloudSecret);
-        Logger.info("LocalSecret " + this.localSecret);
+        // Not logging the actual secrets: they're read locally over LAN by anyone who can
+        // reach /api/v2/valetudo/log/content, and they authenticate the miIO local protocol,
+        // which runs independently of and unprotected by Valetudo's own webserver auth.
+        Logger.info("CloudSecret <redacted>");
+        Logger.info("LocalSecret <redacted>");
     }
 
     async shutdown() {
