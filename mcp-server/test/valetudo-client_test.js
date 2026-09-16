@@ -73,3 +73,47 @@ test("cancels requests that exceed the configured timeout", async () => {
         await assert.rejects(client.getRobotState(), /timed out after 100ms/);
     });
 });
+
+test("aborts and rejects a response body larger than the configured cap", async () => {
+    let clientAborted = false;
+
+    await withServer((request, response) => {
+        response.setHeader("Content-Type", "application/json");
+        response.write("[");
+        // Keep streaming well past the tiny cap below, but stop cleanly once the
+        // client disconnects instead of writing to a closed socket forever.
+        const interval = setInterval(() => {
+            if (clientAborted) {
+                clearInterval(interval);
+                return;
+            }
+            response.write("0,".repeat(1024));
+        }, 5);
+        request.on("aborted", () => {
+            clientAborted = true;
+            clearInterval(interval);
+        });
+    }, async port => {
+        const client = new ValetudoClient({host: "127.0.0.1", port: port, timeoutMs: 1000, maxResponseBytes: 1024});
+        await assert.rejects(client.getRobotState(), /response exceeded 1024 bytes/);
+
+        // The abort propagates to the server asynchronously; give it a moment
+        // rather than asserting the instant the client-side promise rejects.
+        for (let i = 0; i < 50 && !clientAborted; i++) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+    });
+
+    assert.equal(clientAborted, true, "the client must abort the connection, not just stop reading");
+});
+
+test("accepts a response body right up to the configured cap", async () => {
+    await withServer((request, response) => {
+        response.setHeader("Content-Type", "application/json");
+        response.end(JSON.stringify({padding: "x".repeat(1000)}));
+    }, async port => {
+        const client = new ValetudoClient({host: "127.0.0.1", port: port, timeoutMs: 1000, maxResponseBytes: 10 * 1024 * 1024});
+        const result = await client.getRobotState();
+        assert.equal(result.padding.length, 1000);
+    });
+});

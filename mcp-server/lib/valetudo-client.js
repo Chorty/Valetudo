@@ -15,11 +15,16 @@ export class ValetudoClient {
      * @param {string} [options.username] - Basic auth username (if enabled)
      * @param {string} [options.password] - Basic auth password (if enabled)
      * @param {number} [options.timeoutMs=10000] - Per-request timeout in milliseconds
+     * @param {number} [options.maxResponseBytes=10485760] - Response body cap; a well-behaved
+     *   Valetudo never gets close to this even for a large multi-room map, but nothing here
+     *   otherwise stops an oversized or endlessly streaming response from being buffered into
+     *   memory in full before it can be parsed.
      */
     constructor(options) {
         this.baseUrl = `http://${options.host}:${options.port || 80}`;
         this.auth = null;
         this.timeoutMs = options.timeoutMs || 10000;
+        this.maxResponseBytes = options.maxResponseBytes || 10 * 1024 * 1024;
 
         if (options.username && options.password) {
             this.auth = Buffer.from(`${options.username}:${options.password}`).toString("base64");
@@ -55,11 +60,16 @@ export class ValetudoClient {
         }
 
         let response;
+        let text;
         try {
             response = await fetch(url, fetchOptions);
+            text = await this._readBoundedBody(response, controller);
         } catch (error) {
             if (error.name === "AbortError") {
                 throw new Error(`Valetudo API request timed out after ${this.timeoutMs}ms`);
+            }
+            if (error.tooLarge) {
+                throw new Error(`Valetudo API response exceeded ${this.maxResponseBytes} bytes`);
             }
             throw new Error(`Valetudo API request failed: ${error.message}`);
         } finally {
@@ -67,22 +77,49 @@ export class ValetudoClient {
         }
 
         if (!response.ok) {
-            const text = await response.text();
             throw new Error(`Valetudo API error: ${response.status} ${response.statusText} — ${text}`);
         }
 
         const contentType = response.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
-            return response.json();
+            return text.length > 0 ? JSON.parse(text) : { ok: true };
         }
 
         // Some endpoints return 200 with no body
         if (response.status === 200) {
-            const text = await response.text();
             return text.length > 0 ? text : { ok: true };
         }
 
         return { ok: true };
+    }
+
+    /**
+     * Reads a response body while enforcing maxResponseBytes, aborting the request rather
+     * than letting an oversized or endlessly streaming body get buffered in full.
+     *
+     * @private
+     * @param {import("node-fetch").Response} response
+     * @param {AbortController} controller
+     * @returns {Promise<string>}
+     */
+    async _readBoundedBody(response, controller) {
+        const chunks = [];
+        let total = 0;
+
+        for await (const chunk of response.body) {
+            total += chunk.length;
+
+            if (total > this.maxResponseBytes) {
+                controller.abort();
+                const error = new Error(`response exceeded ${this.maxResponseBytes} bytes`);
+                error.tooLarge = true;
+                throw error;
+            }
+
+            chunks.push(chunk);
+        }
+
+        return Buffer.concat(chunks).toString("utf-8");
     }
 
     // ── Convenience helpers ──────────────────────────────────────────────
