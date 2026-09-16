@@ -1,16 +1,16 @@
 # Project Memory Index
 
-Last updated: 2026-09-13
+Last updated: 2026-09-16
 
 ## Repositories
 
 | Component | Location | Active branch | Remote |
 |---|---|---|---|
-| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | Deployed `feature/vacuumstreamer-switches` (`b589bd6d` plus this documentation); `test/upstream-sync-2026-09` at `5d36af0a`; `master` at `eafdf8e8` | `Chorty/Valetudo` via `fork` |
-| VacuumStreamer plugin | `vacuumstreamer-plugin/` | Deployed `feature/runtime-switches` at `20545a8`; `main` merge `194236c` | `Chorty/valetudo-vacuumstreamer-plugin` |
-| Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | Deployed `feature/runtime-switches` at `6b60354`, based on unmerged `feature/alarm-sentry` (`6ab9a50`) | `Chorty/vacuumstreamer` |
+| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | Deployed `sync/upstream-2026-09-16` at `a959c53f` (upstream `190816db` merged onto `master` `31480f89`); `master` matches the previous deployment via PR #10 | `Chorty/Valetudo` via `fork` |
+| VacuumStreamer plugin | `vacuumstreamer-plugin/` | Deployed `eaf1551`, on `main` via PR #5 (merge `f54b23b`) | `Chorty/valetudo-vacuumstreamer-plugin` |
+| Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | Deployed `1d0b187`, on `master` via PR #1 (`feature/alarm-sentry`) and PR #2 (merge `f68214f`) | `Chorty/vacuumstreamer` |
 
-All four branches above were pushed on 2026-09-13; no pull requests are open for them yet.
+On 2026-09-16 every deployed branch was merged into its default branch; only the parent's `sync/upstream-2026-09-16` awaits its PR.
 
 The native companion's former untracked backups, extracted device data, and build artifacts were moved intact to `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234`. Its 16,330-entry manifest has SHA-256 `2fff74550715713760b9ca9c5bb07ff434e1c86e296e0b44a26d6ea9df0712ec`.
 
@@ -18,7 +18,8 @@ The native companion's former untracked backups, extracted device data, and buil
 
 - Deployed 2026-09-13: Valetudo `b589bd6d2a3c8d006dd6859aa910677e199e6e47` with plugin `20545a8c27f9422612bb514b3780f65a31d6e074`, binary SHA-256 `94b6beb6a8b26d288faaa2345e53b43523bd478c8307d07b16f6b9061bdca1ff`; native VacuumStreamer `6b60354dafcba5dd6e23b6ad3e07ea0a054b382c`
 - Backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_b589bd6d_20260913` (sealed; see `BACKUP_INFO.txt` and `DEPLOY_RECORD.txt`); contains device secrets and SSH keys
-- Active since 2026-09-16: Valetudo `4656a38e` (plugin `eaf1551`, ESLint config only), SHA-256 `13a88308ec1f9c101fc2d2d9d5f29c40dcbfea28d3552757caf1a642a05962d4`, native unchanged (`1d0b187`); package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_secrets_20260916` (sealed, `DEPLOY_RECORD.txt`); rollback: `/data/valetudo.predeploy_secrets0916`. Fixes two of the salvage-scan candidates (see item 4): the miIO secret/token log exposure and the `/runtime/info` env disclosure.
+- Active since 2026-09-16 15:01 EDT: Valetudo `a959c53f` (upstream sync through `190816db`, release 2026.08.0; plugin `eaf1551`), SHA-256 `dbe799c11a62af733686df1dfc126595507ce5e0c15d2dd3ea3bfc3f72aadfe9`, native unchanged (`1d0b187`); package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_a959c53f_20260916` (sealed, `DEPLOY_RECORD.txt`); rollback: `/data/valetudo.predeploy_sync0916`. The binary gate passed, then the robot was rebooted so the map would reload (see Recently Completed).
+- Previous: Valetudo `4656a38e` (plugin `eaf1551`, ESLint config only), SHA-256 `13a88308ec1f9c101fc2d2d9d5f29c40dcbfea28d3552757caf1a642a05962d4`, native unchanged (`1d0b187`); package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_secrets_20260916` (sealed, `DEPLOY_RECORD.txt`); rollback: `/data/valetudo.predeploy_secrets0916`. Fixes two of the salvage-scan candidates (see item 4): the miIO secret/token log exposure and the `/runtime/info` env disclosure.
 - Previous: `7bddd63a` (MQTT "speaking" immediate-publish fix, plugin `ce3bf73`), SHA-256 `a6e3cfe8b2339a6df1e492a45ae705216641cf48971bebf435cea56b992ac7d4`, native unchanged (`1d0b187`); package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_speaking_20260915`; rollback: `/data/valetudo.predeploy_speaking0915`
 - Previous: `e5f95357` (TTS ffmpeg-path fix, plugin `475608f`), SHA-256 `fc4a4230636afba56702330c31dc4ae7adf95d435f49b5b1e5345fadafc9929b`, native unchanged (`1d0b187`); package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_ttsfix_20260915`; rollback: `/data/valetudo.predeploy_ttsfix0915`
 - Before that: `0a1c32f6` (bridge allow list, plugin TTS-without-a-shell), SHA-256 `88d2e284a83a41293e2c51418f2accd577226ac7d1a338afe82bb9bf55e3e21a`, native `1d0b187`; package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_0a1c32f6_20260914`; rollback: every `*.predeploy_0a1c32f6` file (binary, `_root_postboot.sh`, `/data/vacuumstreamer/*`), then reboot
@@ -76,7 +77,8 @@ Checked 2026-09-13. Work has happened in Codex threads in VS Code and, since 202
 
 | Role | Tool | Session | ID | Active (UTC) |
 |---|---|---|---|---|
-| Latest working session | Claude Code | Status review, docs, upstream-sync test branch, runtime switches build, deployment and profiling | `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` | 2026-08-15 → 2026-09-13 |
+| Latest working session | Claude Code | Merged deployed branches (native #1/#2, plugin #5, parent #10), upstream sync, deploy `sync0916` | `5513e463-4970-4e68-b12c-4c858988bb9d` | 2026-09-16 |
+| Earlier working session | Claude Code | Runtime switches build, deployment, profiling, fixes through `4656a38e` | `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` | 2026-08-15 → 2026-09-16 |
 | Latest Codex thread | Codex | `Verify corrected GUI profiling - Valetudo REV 2` | `019fe4b0-785e-73b2-bfc3-c14a513e9cf4` | 2026-08-09 04:03 → 2026-09-11 01:06 |
 | Parent of the above | Codex | `Verify corrected GUI profiling - Valetudo` | `019f9be7-acc3-7c60-bbfb-932f7e7537a0` | 2026-07-26 00:51 → 2026-08-09 03:45 |
 
@@ -98,6 +100,8 @@ just the closure log so Open Work below stays focused on what's still open.
 - Plugin ESLint config added and wired into CI (`eaf1551`/`f5308562`): the plugin was never actually being linted at all.
 - Build commit id fixed to use `git rev-parse HEAD` (`4702b019`): previously wrong on every branch but master, and on any worktree checkout.
 - Security-scan candidates fixed and deployed (`4656a38e`/`77efd541`, deploy `secrets0916`): miIO CloudSecret/LocalSecret/handshake-token log exposure, and unconditional env disclosure on `/runtime/info` (now redacts secret-shaped keys). Also fixed, Mac-side only: MCP client response-body size cap (`b8e5cdd9`).
+- Deployed branches merged (2026-09-16): native PRs #1 and #2, plugin PR #5, parent PR #10 (`31480f89`, all CI checks passed).
+- Upstream sync deployed (`a959c53f`, deploy `sync0916`): upstream through `190816db`. Kept `ForcedGcPolicy` over upstream `40e767de`, whose startup code-RSS estimate misses executable pages that become resident later. Checked on the robot: `vendorMapId` from `curid` is 221, matching `/data/map/221`; the config migration removed `provideMapData`; the status flag is `none` while docked; Duststreaming is disabled. A Valetudo restart while docked leaves the map empty until the robot boots or the map changes, because the firmware re-uploads only then. This is not a regression; a reboot brought the map back.
 - Matched-uptime docked camera baselines captured on `0a1c32f6` (`tools/profiles.sh nightly0915`); all gates pass, use these as the new baseline going forward.
 
 ## Open Work, by importance
@@ -105,8 +109,8 @@ just the closure log so Open Work below stays focused on what's still open.
 1. **Restore the missing L10S `VACUUM_THEN_MOP` preset.** A real functional regression, not a process task: this cleaning mode was merged once (PR #2) and then lost from `master`; PR #1 is still open with the fix.
 2. **Port 6971 bridge, stage 2.** Stage 1 (IP allowlist) is live and closes most of the exposure. Left: move Home Assistant's remaining bridge calls to native Valetudo/MQTT entities (driving and obstacle photos have no equivalent yet) and set `HTTP_BRIDGE=off`.
 3. **Cleaning-latency re-test** (on hold -- the user asked to hold off on starting cleanings). Docked baselines already pass every gate on the current build; the CPU fix plausibly also fixes the `root_isolated_ms` p95 ≤ 500 ms cleaning gate that's been failing since 2026-07-26, but that needs two real user-started cleanings (camera idle, camera watched) to confirm.
-4. **Open pull requests.** Plugin `feature/runtime-switches` into `main`, then parent `feature/vacuumstreamer-switches` into `master` with the submodule pointer on the plugin merge commit. Needs a decision: what should native `feature/runtime-switches` merge into, since it currently sits on the unmerged `feature/alarm-sentry`?
-5. **Upstream sync.** Reconcile `test/upstream-sync-2026-09` (upstream 2026.08.0 plus ~30 commits) with the runtime-switches work, test on the robot, then open a PR. Larger effort, best sequenced after item 4 so it isn't reconciled twice.
+4. **Merge `sync/upstream-2026-09-16` into `master`.** It is deployed and verified on the robot; open the PR and merge once CI passes. Not yet exercised on the robot: joystick movement with upstream's disable-calls-stop change, and segment material writes with the new `curid` map ID.
+5. **Upstream sync going forward.** `origin` is Hypfer. Merge onto `master`, keep `ForcedGcPolicy` unless upstream adopts an equivalent, and expect no map after a docked binary-only restart until a reboot.
 6. **Watchdog `VALETUDO_SLOW_REQUEST_MS` decision.** The robot's `valetudo_watchdog.sh` sets it to `500` permanently; the repo copy defaults to `0` (off), and CLAUDE.md says it's meant only for acceptance-deployment telemetry. Decide whether to turn it off on the robot or make `500` the intended default.
 7. **Housekeeping: prune old on-device rollback binaries and old Mac backup packages.** Lower urgency now that the Mac has ~18 GB free again (it was under 1 GB on 2026-09-13, which is what made a backup fail that day). Keep `predeploy_secrets0916` and one or two before it; the rest are ~480 MB+ that every future robot backup re-archives.
 8. **Camera page in the Valetudo UI** using go2rtc's player. Explicitly lower priority per the user; useful mainly for debugging.
@@ -123,6 +127,7 @@ just the closure log so Open Work below stays focused on what's still open.
 - `vacuumstreamer-plugin/README.md` — plugin MQTT/Home Assistant entities
 - `/Users/mattjoslin/Documents/GitHub/vacuumstreamer/README.md` — native VacuumStreamer documentation, runtime switches, camera modes and login
 - `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_b589bd6d_20260913/DEPLOY_RECORD.txt` — 2026-09-13 deployment stages, fixes and profile paths
+- `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_a959c53f_20260916/DEPLOY_RECORD.txt` — upstream sync: conflict decisions, pre-merge checks, the docked map-reload finding
 
 ## Next-Session Checklist
 

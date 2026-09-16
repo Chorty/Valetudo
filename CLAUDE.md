@@ -8,7 +8,7 @@ This fork adds camera streaming, text-to-speech, and safe multi-floor map manage
 - **Plugin submodule:** `Chorty/valetudo-vacuumstreamer-plugin`, branch `main`, mounted at `vacuumstreamer-plugin/`
 - **Native companion:** `Chorty/vacuumstreamer`; contains the LD_PRELOAD capture shim, go2rtc support, HTTP bridge, and Home Assistant helpers
 - **Upstream Valetudo:** `Hypfer/Valetudo`; merge into the fork only after reviewing and testing the integration points
-- **Deployed but unmerged (2026-09-13):** parent `feature/vacuumstreamer-switches`, plugin `feature/runtime-switches`, native `feature/runtime-switches`; the upstream-merge test branch is `test/upstream-sync-2026-09`. `MEMORY.md` lists commits and open work.
+- **Merged 2026-09-16:** the deployed runtime-switches work is on every default branch: native PRs #1 and #2, plugin PR #5, parent PR #10. The deployed upstream sync is `sync/upstream-2026-09-16` (`a959c53f`). `MEMORY.md` lists commits and open work.
 
 ## Robot and Access
 
@@ -22,7 +22,11 @@ Never commit SSH keys, passwords, Home Assistant tokens, or MCP credentials. Cre
 
 ## Current Deployed Baseline
 
-Deployed 2026-09-13 from a local build; none of it is merged to `master` yet.
+Since 2026-09-16 the robot runs Valetudo `a959c53f` (release 2026.08.0), built with `tools/build_valetudo.sh`. It is fork `master` `31480f89` with upstream `190816db` merged in, plugin `eaf1551`, binary SHA-256 `dbe799c11a62af733686df1dfc126595507ce5e0c15d2dd3ea3bfc3f72aadfe9`. The native runtime is unchanged at `1d0b187`. Backup and record: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_a959c53f_20260916`; rollback: `/data/valetudo.predeploy_sync0916`. Deploys between 2026-09-13 and this one are listed in `MEMORY.md`.
+
+After any binary-only Valetudo restart while the robot is docked, the map stays empty until the robot boots or its map changes. The Dreame firmware re-uploads its I-frame only on those events, so a reboot, not a rollback, is the fix.
+
+### 2026-09-13 runtime-switches deployment
 
 - Valetudo: `feature/vacuumstreamer-switches` at `b589bd6d2a3c8d006dd6859aa910677e199e6e47`, plugin `20545a8c27f9422612bb514b3780f65a31d6e074`; the runtime reports that commit
 - Active ARM64 binary SHA-256: `94b6beb6a8b26d288faaa2345e53b43523bd478c8307d07b16f6b9061bdca1ff`, built from a clean detached clone with the `manual_build.yml` steps
@@ -334,7 +338,7 @@ Work on this repository has happened in Codex threads in VS Code and, since 2026
 - Codex thread names: `~/.codex/session_index.jsonl`
 - Claude Code transcripts: `~/.claude/projects/-Users-mattjoslin-Documents-GitHub-Valetudo/`
 
-Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-13 the latest working session is Claude Code session `a53fcc89-ed26-475f-b8f4-efa3d70a7db1`, which built, deployed and profiled the runtime switches. The latest Codex thread is `Verify corrected GUI profiling - Valetudo REV 2` (`019fe4b0-785e-73b2-bfc3-c14a513e9cf4`). `MEMORY.md` records both.
+Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-16 the latest working session is Claude Code session `5513e463-4970-4e68-b12c-4c858988bb9d`, which merged the deployed branches and deployed the upstream sync; before it, `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` built, deployed and profiled the runtime switches. The latest Codex thread is `Verify corrected GUI profiling - Valetudo REV 2` (`019fe4b0-785e-73b2-bfc3-c14a513e9cf4`). `MEMORY.md` records both.
 
 ## Development Rules
 
@@ -356,7 +360,7 @@ git merge origin/master
 
 In this checkout, `origin` is Hypfer's upstream and `fork` is Chorty's fork. Re-run lint, type checks, tests, production frontend build, and ARM64 packaging after every upstream integration.
 
-`test/upstream-sync-2026-09` (`5d36af0a`, pushed) merges upstream through `5772c9c3`, which includes the 2026.08.0 release, into `master` at `eafdf8e8`. The only conflict was an import in `ValetudoAppBar.tsx`, and lint, type checks, tests and the frontend build pass. It predates the runtime-switches branch and has not been tested on the robot. Before merging it, check manual control stop and disable, the wider resumable flag, the Dreame map ID used for floor materials, and MQTT map data now that `provideMapData` is gone. Leave upstream's Duststreaming off: its driver can hard-lock the kernel. The L10S `VACUUM_THEN_MOP` preset is missing from both `master` and upstream.
+`sync/upstream-2026-09-16` (`a959c53f`) merges upstream through `190816db` onto `master` `31480f89` and is deployed. Two conflicts were resolved: `ValetudoAppBar.tsx` keeps both imports, and `Valetudo.js` keeps `ForcedGcPolicy` instead of upstream `40e767de`. Upstream estimates resident code RSS once after startup, but on the L10S executable pages become resident over hours, so that trigger can re-arm every 2.5 s with no backoff. The pre-merge checks and on-robot results are in the deploy record: floor-material `vendorMapId` from `curid` is 221, `provideMapData` was migrated away, and the status flag is `none` while docked. Leave upstream's Duststreaming off: its driver can hard-lock the kernel. The L10S `VACUUM_THEN_MOP` preset is missing from both `master` and upstream.
 
 ## Known Harmless Warnings
 
