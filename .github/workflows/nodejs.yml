@@ -33,6 +33,7 @@
               },
               { 'run': 'npm run ts-check --workspace={frontend,backend}' },
               { 'run': 'npm run lint --workspace={frontend,backend}' },
+              { 'name': 'Lint VacuumStreamer plugin', 'run': 'npm run lint_plugin' },
               { 'run': 'npm run build --workspace=frontend' },
               { 'run': 'npm run build --workspace=backend' },
               { 'run': 'npm test --workspace=backend', 'env': { 'CI': true } },
