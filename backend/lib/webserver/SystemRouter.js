@@ -38,7 +38,7 @@ class SystemRouter {
                 gid: typeof process.getegid === "function" ? process.getegid() : -1,
                 pid: process.pid,
                 versions: process.versions,
-                env: process.env,
+                env: SystemRouter.REDACT_SENSITIVE_ENV_VARS(process.env),
                 phoenix: {
                     canReincarnate: this.phoenixManager.canReincarnate(),
                     generation: this.phoenixManager.cycleData.generation
@@ -50,6 +50,28 @@ class SystemRouter {
     getRouter() {
         return this.router;
     }
+
+    /**
+     * This endpoint exists for debugging, but dumping the entire process environment
+     * unconditionally is risky on a setup with Basic Auth disabled -- a supported,
+     * documented configuration for trusted LAN use -- since anything sensitive that ends
+     * up there (now or in some future env var) becomes readable by anyone on the network.
+     *
+     * Values are redacted by key name, not removed, so the response shape and legitimate
+     * debugging value (which vars are set, and their non-sensitive values) are preserved.
+     *
+     * @param {object} env
+     * @returns {object}
+     */
+    static REDACT_SENSITIVE_ENV_VARS(env) {
+        return Object.fromEntries(
+            Object.entries(env).map(([key, value]) => {
+                return [key, SystemRouter.SENSITIVE_ENV_KEY_PATTERN.test(key) ? "<redacted>" : value];
+            })
+        );
+    }
 }
+
+SystemRouter.SENSITIVE_ENV_KEY_PATTERN = /secret|password|passwd|token|credential|auth|key/i;
 
 module.exports = SystemRouter;

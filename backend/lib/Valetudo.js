@@ -12,6 +12,7 @@ const v8 = require("v8");
 const ValetudoEventStore = require("./ValetudoEventStore");
 const Webserver = require("./webserver/WebServer");
 
+const ForcedGcPolicy = require("./utils/ForcedGcPolicy");
 const NetworkAdvertisementManager = require("./NetworkAdvertisementManager");
 const NetworkConnectionStabilizer = require("./NetworkConnectionStabilizer");
 const PhoenixManager = require("./PhoenixManager");
@@ -135,32 +136,28 @@ class Valetudo {
          * for some reason that doesn't happen immediately (at least on node v14.16.0) which leads to
          * memory issues on machines like the roborock s5 max
          *
-         * Therefore, we'll manually force a gc if the memory usage seems odd
+         * Therefore, we'll manually force a gc if the heap and buffers together exceed the heap limit.
+         * See ForcedGcPolicy for why this must not be based on RSS.
          *
          * This could use some more testing and will probably require tweaking with new hw as well as sw versions
          */
         //@ts-ignore
         if (typeof global.gc === "function") {
             const heapLimit = v8.getHeapStatistics().heap_size_limit;
-            const overHeapLimit = heapLimit + (10*1024*1024); //10mb of buffers and other stuff sounds somewhat reasonable
             const rssLimit = os.totalmem()*(1/3);
 
-            let lastForcedGc = new Date(0);
+            const forcedGcPolicy = new ForcedGcPolicy({ thresholdBytes: heapLimit });
 
             this.gcInterval = setInterval(() => {
-                //@ts-ignore
-                const rss = process.memoryUsage.rss();
+                const memoryUsage = process.memoryUsage();
+                const rss = memoryUsage.rss;
 
-                if (rss > overHeapLimit) {
-                    const now = new Date();
-                    //It doesn't make sense to GC every 250ms repeatedly. Therefore, we rate-limit this
-                    if (now.getTime() - 2500 > lastForcedGc.getTime()) {
-                        lastForcedGc = now;
+                if (forcedGcPolicy.shouldCollect(memoryUsage, Date.now())) {
+                    //@ts-ignore
+                    //eslint-disable-next-line no-undef
+                    global.gc();
 
-                        //@ts-ignore
-                        //eslint-disable-next-line no-undef
-                        global.gc();
-                    }
+                    forcedGcPolicy.recordCollection(process.memoryUsage(), Date.now());
                 }
 
                 if (rss > rssLimit && this.config.get("embedded") === true) {

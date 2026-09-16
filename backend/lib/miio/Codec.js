@@ -86,7 +86,7 @@ class Codec {
                     checksumFromHeader: checksumFromHeader,
                     calculatedChecksum: calculatedChecksum,
                     packet: rawPacket,
-                    token: this.token
+                    token: "<redacted>"
                 });
             } else {
                 // If we receive an empty packet with a wrong checksum, assume that we're instead being provided a new token.
@@ -97,7 +97,7 @@ class Codec {
                     token.toString("hex") !== "00000000000000000000000000000000" &&
                     !(this.token.equals(token))
                 ) {
-                    Logger.info("Got token from handshake:", token.toString("hex"));
+                    Logger.info("Got token from handshake: <redacted>");
 
                     this.setToken(token);
                 }
