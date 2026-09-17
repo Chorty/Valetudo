@@ -251,7 +251,7 @@ With Valetudo MQTT and Home Assistant autodiscovery enabled, the plugin adds:
 - a TTS `notify` entity, speaking-state diagnostic sensor, and stop-audio button;
 - a video-stream switch and disabled-by-default RTSP/WebRTC URL sensors.
 
-The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video. Since the 2026-09-13 deployment the video switch resumes or pauses the camera, and with on-demand capture it stays on while the camera waits for a viewer. Home Assistant has not been re-verified with a token since that change.
+The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video. Since the 2026-09-13 deployment the video switch resumes or pauses the camera, and with on-demand capture it stays on while the camera waits for a viewer. On 2026-09-15, with the camera login on, Home Assistant was re-verified with a token. The Generic camera `camera.192_168_1_31_2` holds the go2rtc credentials and returned a still JPEG and an HLS stream. The video switch paused and resumed the camera, the URL sensors were present, TTS spoke, and mop drying, mop-dock cleaning and auto-empty each ran through HA buttons. The `dashboard-cleaning` camera card plays through Home Assistant (`live_provider: ha`), because a browser cannot send go2rtc credentials.
 
 The authenticated 2026-07-24 live verification found MQTT, MQTT Vacuum Camera, and Valetudo configured without failed setup and attached to the same `Vacuum CleanusMaximus` device. The device exposed 52 entities, including maploader, dock actions, TTS, stop-audio, video, and robot-quirk controls; the RTSP and WebRTC URL sensors were the only disabled entities and are disabled by default. Home Assistant reflected the authorized API video stop/start, both video processes returned, the HLS master playlist returned HTTP 200, and a temporary encoded-stream sample measured approximately 15.02 FPS. HA-originated TTS, dock, maploader, and other state-changing entity commands were not exercised during this verification.
 
@@ -296,7 +296,7 @@ Required on the robot:
 
 ### Runtime switches
 
-`vacuumstreamer.conf` holds `CAMERA`, `CAMERA_MODE` (`on_demand` or `always`), `CAMERA_IDLE_SECONDS` (default 180), `CAMERA_LOGIN` (default off), `TTS`, `MAP_MANAGEMENT` and `HTTP_BRIDGE`. The file is parsed, never executed. The boot script and the plugin both read it, and a switched-off capability is not registered. Reboot after changing a switch. Deployed values: everything on, `CAMERA_MODE=on_demand`, login off.
+`vacuumstreamer.conf` holds `CAMERA`, `CAMERA_MODE` (`on_demand` or `always`), `CAMERA_IDLE_SECONDS` (default 180), `CAMERA_LOGIN` (default off), `TTS`, `MAP_MANAGEMENT`, `HTTP_BRIDGE` and `HTTP_BRIDGE_ALLOW` (default `any`). The file is parsed, never executed. The boot script and the plugin both read it, and a switched-off capability is not registered. Reboot after changing a switch; `HTTP_BRIDGE_ALLOW` is read on every bridge request and needs no reboot. Deployed values since 2026-09-15: everything on, `CAMERA_MODE=on_demand`, `CAMERA_LOGIN=on`, `HTTP_BRIDGE_ALLOW=192.168.1.106` (Home Assistant).
 
 ### Camera lifecycle
 
@@ -320,15 +320,24 @@ The original logical scan is stopped and cannot be finalized as a canonical Deep
 
 Salvage recovery on 2026-08-13 found that one repository-wide discovery pass had completed its full 955-file, roughly 99,518-line coverage ledger and retained ten plausible candidates: secret-bearing log exposure, runtime environment disclosure, four voice-pack SSRF variants, VacuumStreamer TTS shell injection, MCP plaintext Basic Auth, MCP response-body resource exhaustion, and an updater trust/checksum weakness. None has been validated or assigned a severity.
 
-A focused salvage-validation pass against `706d43ff` began the same day. It classifies each candidate by attacker-controlled source, reachable sink, missing control, product boundary, and impact, with bounded tests planned for the TTS command construction and MCP behaviors. It paused before writing any salvage artifact, validation receipt, or report, and nothing is running. The candidates survive only in the Codex thread history recorded in `MEMORY.md`. Completing that pass, estimated at 15,000–30,000 tokens, will produce a clearly labeled non-canonical salvage report; a new Standard or Deep Scan is needed only for a canonical result.
+A focused salvage-validation pass against `706d43ff` began the same day. It classifies each candidate by attacker-controlled source, reachable sink, missing control, product boundary, and impact, with bounded tests planned for the TTS command construction and MCP behaviors. It paused before writing any salvage artifact, validation receipt, or report.
+
+On 2026-09-14 through -16 all ten candidates were assessed by hand against current source. That review is recorded in `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_secrets_20260916/DEPLOY_RECORD.txt` and is not a canonical scan result:
+
+- **Fixed and deployed:** the secret-bearing log exposure (`77efd541`; the miIO cloud and local secrets and the handshake token are no longer logged), the runtime environment disclosure (`4656a38e`; secret-shaped keys are redacted from `/runtime/info`), and the VacuumStreamer TTS shell injection (plugin `cd18818`, which runs TTS without a shell)
+- **Fixed on the Mac only:** MCP response-body resource exhaustion (`b8e5cdd9`; bodies capped at 10 MiB)
+- **Assessed, not changed:** the four voice-pack SSRF variants. The robot does fetch an admin-supplied URL, but on this flat LAN it gives an attacker no reach they lack already.
+- **Assessed, not a bug:** MCP plaintext Basic Auth (documented design; tunnel for remote clients) and the updater trust weakness (SHA-256 checked against a manifest from `api.github.com`; code signing is absent)
+
+A new Standard or Deep Scan is still needed for a canonical result.
 
 ### Exposures found 2026-09-13
 
-These are confirmed from source and configuration, separate from the unvalidated scan candidates above:
+These are confirmed from source and configuration, separate from the scan candidates above. The first two have been mitigated on the robot:
 
-- While `CAMERA_LOGIN=off`, go2rtc's API on port 1984 is open to the LAN. `POST /api/config` rewrites go2rtc's configuration, which can add command-running sources, and `/api/restart` applies it, so any device on the network could run commands as root on the robot. The login was verified against a local go2rtc 1.9.9 build: 401 without or with wrong credentials, 200 with them, and no secret in `/api/config` or process arguments.
-- The port 6971 HTTP bridge (`tts_handler.sh`) has no authentication and can drive the robot, start cleaning and reset consumables. `HTTP_BRIDGE=off` disables it.
-- Valetudo Basic Auth is disabled.
+- **Mitigated 2026-09-15 by `CAMERA_LOGIN=on`.** While `CAMERA_LOGIN=off`, go2rtc's API on port 1984 is open to the LAN. `POST /api/config` rewrites go2rtc's configuration, which can add command-running sources, and `/api/restart` applies it, so any device on the network could run commands as root on the robot. The login was verified against a local go2rtc 1.9.9 build: 401 without or with wrong credentials, 200 with them, and no secret in `/api/config` or process arguments.
+- **Partly mitigated 2026-09-14 by `HTTP_BRIDGE_ALLOW=192.168.1.106`; other clients get 403.** The port 6971 HTTP bridge (`tts_handler.sh`) has no authentication and can drive the robot, start cleaning and reset consumables. `HTTP_BRIDGE=off` disables it once Home Assistant no longer needs it (MEMORY.md Open Work).
+- **Still open:** Valetudo Basic Auth is disabled.
 
 ## Agent Session History
 

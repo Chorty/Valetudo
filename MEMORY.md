@@ -68,8 +68,8 @@ The native companion's former untracked backups, extracted device data, and buil
 - No successful terminal discovery handoff, centralized validation, attack-path analysis, canonical draft, completion, or generated `report.md` exists. Partial candidate ledgers are unvalidated discovery evidence and must not be reported as findings or no-findings.
 - The original scan cannot be finalized as a canonical Deep Scan: its temporary scan directory was cleaned up and its coordinator state is lost.
 - Salvage recovery on 2026-08-13 found that one repository-wide discovery pass had completed its full 955-file (~99,518-line) ledger and retained 10 plausible, unvalidated candidates: secret-bearing log exposure, runtime environment disclosure, four voice-pack SSRF variants, VacuumStreamer TTS shell injection, MCP plaintext Basic Auth, MCP response-body resource exhaustion, and an updater trust/checksum weakness. They are leads, not confirmed vulnerabilities, and have no calibrated severity.
-- A focused salvage-validation pass against `706d43ff` started on 2026-08-13 and paused the same day before writing any salvage artifact, validation receipt, or report. No salvage files exist on disk; the candidates survive only in the Codex thread history listed under Agent Session History. Nothing is running. The thread estimated 15,000–30,000 tokens to finish.
-- The recorded plan is to resume that salvage validation and produce a clearly labeled non-canonical salvage report. A new Standard or Deep Scan is needed only for a canonical result.
+- The focused salvage-validation pass started on 2026-08-13 paused without an artifact. Instead, all 10 candidates were assessed by hand on 2026-09-14 through -16; see `valetudo_secrets_20260916/DEPLOY_RECORD.txt`. Fixed: secret logging (`77efd541`), env disclosure (`4656a38e`), TTS shell injection (plugin `cd18818`) and MCP body size (`b8e5cdd9`, Mac only). Not changed: the 4 voice-pack SSRF variants (Open Work item 9). Not bugs: MCP plaintext Basic Auth and the updater checksum design.
+- That review is not a canonical scan result; a new Standard or Deep Scan is needed for one.
 
 ## Agent Session History
 
@@ -136,7 +136,7 @@ just the closure log so Open Work below stays focused on what's still open.
 3. Run tests appropriate to every changed component.
 4. Commit plugin changes before the parent submodule pointer.
 5. Do not deploy without a new checked backup and automatic rollback.
-6. Treat the 2026-08-08 Deep Scan as failed and non-final and the 2026-08-13 salvage validation as paused; never summarize the 10 unvalidated candidates as findings or as a clean result.
+6. Treat the 2026-08-08 Deep Scan as failed and non-final. The 10 candidates were assessed by hand on 2026-09-14 through -16 (see Security Review Stopping Point), which is not a canonical scan; never present it as a clean scan result.
 7. Before continuing earlier work, check both Codex and Claude Code transcripts for a session newer than the ones recorded under Agent Session History.
 8. Work from the Open Work list above, and keep it current.
 9. Compare CPU and latency only against baselines captured at a similar uptime.
