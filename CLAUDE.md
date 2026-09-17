@@ -206,6 +206,19 @@ The original supervisor started about 20 processes every five seconds, which del
 
 Valetudo's own CPU rises with uptime while docked: about 4.5% for the first hour after boot, 6.3% after 3 hours, and 8.5–9.7% after 3.5 hours with the same PID and flat RSS. The `f1e5a157` build did the same, reaching 36–49% after about two days on 2026-07-25. The nightly Dreame reboot resets it. Because the 2026-07-25 baselines were captured 24–38 minutes after boot, compare CPU only at matched uptime. The cause has not been investigated. Profile directories are in `DEPLOY_RECORD.txt`.
 
+### Foyer-scoped cleaning profiles (2026-09-16)
+
+First `root_isolated_ms` pass of the 500 ms cleaning gate since it started failing on 2026-07-26 -- but on a single small room, not the whole-house/multi-room scope of the runs above, so treat this as real evidence, not a replacement for a full acceptance pass. Both runs cleaned segment 5 (Foyer) back to back on the `a959c53f` build (see Current Deployed Baseline).
+
+| Scenario | Isolated p95 | Burst `root_ms` p95 | Gate |
+|---|---|---|---|
+| Video off | 155.6 ms | 578.8 ms | Passes (500 ms absolute) |
+| Video on (automated RTSP viewer) | 318.4 ms | 736.2 ms | Passes (500 ms absolute) |
+
+Zero HTTP failures either run. Valetudo CPU averaged 16.1%/16.4% (off/on) against a 45.8% pre-fix baseline on 2026-07-26 -- the forced-GC fix is holding. The video-off run has a known contamination caveat: the user browsed the Valetudo GUI during it, producing 3 outlier samples (max 2034 ms) that a percentile largely absorbs. The video-on run used an automated `ffmpeg` RTSP puller instead of GUI browsing, so it is not similarly contaminated.
+
+**Open question:** video-on increased isolated p95 by 104.6% and burst p95 by 27.2% here, far more than the 11.5%/18.4% found in the whole-house 2026-07-26 comparison above, even though AVA and Valetudo CPU were nearly identical between the two Foyer runs (242.5%/241.6% and 16.1%/16.4%). Only `video_monitor` (10.4% CPU) and go2rtc (3.0%) changed, yet state, map and JS-bundle latency rose along with root -- not just the one endpoint -- which points toward a shared, non-CPU bottleneck (most likely network bandwidth on the robot's wifi radio) that a short, light workload exposes more than a long, CPU-saturating whole-house clean does. Not yet investigated. Profile directories are in `MEMORY.md` Open Work item 3.
+
 ## Plugin Capabilities
 
 | Capability | Purpose |
