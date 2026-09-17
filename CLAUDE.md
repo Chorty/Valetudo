@@ -327,6 +327,20 @@ Required on the robot:
 
 `CAMERA_LOGIN=on` protects go2rtc's API and RTSP with credentials that go2rtc reads through `CREDENTIALS_DIRECTORY` from `/data/vacuumstreamer/credentials/GO2RTC_USERNAME` and `GO2RTC_PASSWORD`. The directory must be mode 700 and the files 600; values may use letters, digits, `.`, `_`, `~` and `-`, and the password needs at least 16 characters. Misconfigured credentials stop the camera instead of running it without a login. Requests from the robot itself are not challenged. The native README covers setup and client URLs.
 
+### Duststreaming (upstream, unrelated)
+
+Since the 2026-09-17 upstream sync, Valetudo Options shows a "Camera Streaming" toggle ("See what your robot sees"). This is upstream's own **Duststreaming** feature, added in `90dc810c`, and it shares no code with VacuumStreamer's camera:
+
+| | VacuumStreamer's camera | Duststreaming |
+|---|---|---|
+| Capture | Dreame's own `video_monitor` vendor binary, intercepted via the `vacuumstreamer.so` LD_PRELOAD shim | A separate `duststreamer` binary (gstreamer, not included) reimplements capture from scratch, talking directly to the camera hardware per SoC platform (`dreame_mr813` among others, `LinuxDuststreamingCapability.js`) |
+| Where it runs | Separate processes (`video_monitor`, `go2rtc`), isolated from Valetudo, both at Valetudo's own nice level since the fix above | `duststreamer` → UDP → straight into Valetudo's own Node process, which `res.write()`s every frame to every subscriber itself (`DuststreamingCapabilityRouter.js`) -- its video load is inseparable from Valetudo's own event-loop responsiveness |
+| Output | go2rtc: RTSP, WebRTC, HLS, API | One raw MPEG-TS HTTP stream |
+| Login | Dedicated go2rtc credentials (`CAMERA_LOGIN`) | None of its own -- rides entirely on Valetudo's Basic Auth, which is off on this robot |
+| Enabling it | On by default, part of the product | Manual binary install plus a mandatory ethics/privacy warning dialog every time, and a one-way "delete the binary" killswitch |
+
+Its driver can hard-lock the kernel on some platforms (`MEMORY.md` Open Work item 13), which is why the UI gates it behind that warning and manual install, and why this project leaves it off. Do not enable it, and do not confuse a question about "the camera" with this feature -- ask which one is meant if it's unclear.
+
 ## Security Review Status
 
 The Codex Security Deep Scan started on 2026-08-08 against source commit `706d43ff0c41c34523488dac1e60abac3a11b83d` after its configuration preflight passed. The Python helper issue was resolved by setting `PYTHON = "/opt/homebrew/bin/python3"` in the Codex `shell_environment_policy.set` configuration.
@@ -364,7 +378,7 @@ Work on this repository has happened in Codex threads in VS Code and, since 2026
 - Codex thread names: `~/.codex/session_index.jsonl`
 - Claude Code transcripts: `~/.claude/projects/-Users-mattjoslin-Documents-GitHub-Valetudo/`
 
-Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-16 the latest working session is Claude Code session `5513e463-4970-4e68-b12c-4c858988bb9d`, which merged the deployed branches and deployed the upstream sync; before it, `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` built, deployed and profiled the runtime switches. The latest Codex thread is `Verify corrected GUI profiling - Valetudo REV 2` (`019fe4b0-785e-73b2-bfc3-c14a513e9cf4`). `MEMORY.md` records both.
+Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-17 the latest working session is Claude Code session `5513e463-4970-4e68-b12c-4c858988bb9d`, which merged the deployed branches, deployed the upstream sync, ran three supervised Foyer cleanings, and found, fixed and live-verified the video-priority latency issue; before it, `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` built, deployed and profiled the runtime switches. The latest Codex thread is `Verify corrected GUI profiling - Valetudo REV 2` (`019fe4b0-785e-73b2-bfc3-c14a513e9cf4`). `MEMORY.md` records both and carries an explicit handoff note: the next session is Codex.
 
 ## Development Rules
 
