@@ -8,7 +8,7 @@ This fork adds camera streaming, text-to-speech, and safe multi-floor map manage
 - **Plugin submodule:** `Chorty/valetudo-vacuumstreamer-plugin`, branch `main`, mounted at `vacuumstreamer-plugin/`
 - **Native companion:** `Chorty/vacuumstreamer`; contains the LD_PRELOAD capture shim, go2rtc support, HTTP bridge, and Home Assistant helpers
 - **Upstream Valetudo:** `Hypfer/Valetudo`; merge into the fork only after reviewing and testing the integration points
-- **Merged 2026-09-16:** the deployed runtime-switches work is on every default branch: native PRs #1 and #2, plugin PR #5, parent PR #10. The deployed upstream sync is `sync/upstream-2026-09-16` (`a959c53f`). `MEMORY.md` lists commits and open work.
+- **Merged 2026-09-16:** the deployed runtime-switches work is on every default branch: native PRs #1 and #2, plugin PR #5, parent PR #10. The deployed upstream sync (`a959c53f`) merged as PR #11. `MEMORY.md` lists commits and open work.
 
 ## Robot and Access
 
@@ -35,7 +35,7 @@ After any binary-only Valetudo restart while the robot is docked, the map stays 
 - On-device rollback files: `/data/valetudo.predeploy_b589bd6d` (the `f1e5a157` binary `6d9f1ed543a37c261a8ffd2da675c2a47c3e073775c9852b0a5d4b82ac7d74a5`), `/data/_root_postboot.sh.predeploy_b589bd6d` and `/data/vacuumstreamer/go2rtc.yaml.predeploy_b589bd6d`. To roll back, copy them over the originals and reboot
 - Older rollback binaries remain in `/data`, including `predeploy_f1e5a157` and `predeploy_6a8829ea`
 
-The deployment passed an on-robot 60-second health gate, a reboot gate of 12 consecutive checks with automatic rollback armed, and runtime commit verification. On the robot the camera stops capturing after 180 s without a viewer, wakes to H.264 stream info in about 3.6 s, pauses and resumes through the Valetudo API, recovers from a `video_monitor` crash in under 1.2 s, and recovers from a frozen `video_monitor` in about 27 s by escalating to KILL. Home Assistant has not been re-verified with a token since this deployment.
+The deployment passed an on-robot 60-second health gate, a reboot gate of 12 consecutive checks with automatic rollback armed, and runtime commit verification. On the robot the camera stops capturing after 180 s without a viewer, wakes to H.264 stream info in about 3.6 s, pauses and resumes through the Valetudo API, recovers from a `video_monitor` crash in under 1.2 s, and recovers from a frozen `video_monitor` in about 27 s by escalating to KILL. Home Assistant was re-verified with a token on 2026-09-15; see MQTT and Home Assistant.
 
 ### Previous baseline
 
@@ -291,7 +291,7 @@ Required on the robot:
 
 - `/data/vacuumstreamer/vacuumstreamer.so`, `video_monitor`, `go2rtc`, `go2rtc.yaml` and `ffmpeg`
 - `/data/vacuumstreamer/tts_handler.sh`, launched through `tcpsvd` on port 6971
-- Runtime scripts from `Chorty/vacuumstreamer` `feature/runtime-switches`: `vacuumstreamer_lib.sh`, `vacuumstreamer_boot.sh`, `go2rtc_launch.sh`, `video_monitor_launch.sh`, `camera_wake.sh`, `camera_supervisor.sh` and `camera_ctl.sh`
+- Runtime scripts from `Chorty/vacuumstreamer` `master`: `vacuumstreamer_lib.sh`, `vacuumstreamer_boot.sh`, `go2rtc_launch.sh`, `video_monitor_launch.sh`, `camera_wake.sh`, `camera_supervisor.sh`, `camera_ctl.sh` and `http_bridge.sh`. `tools/` in that repository holds the backup, build and gated deploy scripts
 - `/data/vacuumstreamer/vacuumstreamer.conf`, installed once and never overwritten by later deployments
 
 ### Runtime switches
@@ -369,7 +369,7 @@ git merge origin/master
 
 In this checkout, `origin` is Hypfer's upstream and `fork` is Chorty's fork. Re-run lint, type checks, tests, production frontend build, and ARM64 packaging after every upstream integration.
 
-`sync/upstream-2026-09-16` (`a959c53f`) merges upstream through `190816db` onto `master` `31480f89` and is deployed. Two conflicts were resolved: `ValetudoAppBar.tsx` keeps both imports, and `Valetudo.js` keeps `ForcedGcPolicy` instead of upstream `40e767de`. Upstream estimates resident code RSS once after startup, but on the L10S executable pages become resident over hours, so that trigger can re-arm every 2.5 s with no backoff. The pre-merge checks and on-robot results are in the deploy record: floor-material `vendorMapId` from `curid` is 221, `provideMapData` was migrated away, and the status flag is `none` while docked. Leave upstream's Duststreaming off: its driver can hard-lock the kernel. The L10S `VACUUM_THEN_MOP` preset is missing from both `master` and upstream.
+`sync/upstream-2026-09-16` (`a959c53f`, merged as PR #11) merges upstream through `190816db` onto `master` `31480f89` and is deployed. Two conflicts were resolved: `ValetudoAppBar.tsx` keeps both imports, and `Valetudo.js` keeps `ForcedGcPolicy` instead of upstream `40e767de`. Upstream estimates resident code RSS once after startup, but on the L10S executable pages become resident over hours, so that trigger can re-arm every 2.5 s with no backoff. The pre-merge checks and on-robot results are in the deploy record: floor-material `vendorMapId` from `curid` is 221, `provideMapData` was migrated away, and the status flag is `none` while docked. Leave upstream's Duststreaming off: its driver can hard-lock the kernel. The L10S `VACUUM_THEN_MOP` preset is missing from both `master` and upstream. Upstream removed it on purpose in `e42adcb7`, so fork PR #1, which re-added it, was closed until a user-started cleaning shows preset 3 vacuums first and then mops.
 
 ## Known Harmless Warnings
 
