@@ -46,7 +46,7 @@ Before writing, backed up `/data/ri`, `/data/map`, `/data/DivideMap`, and `/data
 
 On vendor map ID **221**, changed Foyer (segment **5**) from `wood_vertical` to `tile`, observed `tile` in the live map, and restored `wood_vertical` with readback. Other segment materials were checked throughout; the robot stayed docked/idle.
 
-**Physical joystick disable-stops test: passed 2026-09-17.** The user manually drove the robot via the dpad in the Valetudo UI itself (not through this migration's HA path) and confirmed it stopped cleanly and responsively. This establishes what the stationary material-write test above could not.
+**Physical joystick disable-stops test: passed 2026-09-17.** During a supervised manual-driving test, the robot stopped immediately, turned in the expected directions shown by the live video, and kept the video smooth while moving. A read-only follow-up confirmed manual control disabled, the robot docked with no error flag, and the dock idle. This establishes what the stationary disable check above could not.
 
 ### Upstream
 
