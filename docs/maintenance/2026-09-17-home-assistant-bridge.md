@@ -52,6 +52,18 @@ The physical joystick disable-stops test remains open. A successful disable call
 
 Fetched `origin` and `fork`. `origin/master` remains `190816db`, already contained in local/fork `master` `64a6fb85`. No merge, source build, or deployment was needed. The deployed binary remains `a959c53f`, plugin `eaf1551`, native runtime `cd71f8b`. Preserve `ForcedGcPolicy` when reviewing future upstream changes.
 
+## Follow-up: polling redundancy fix (same day, later session)
+
+A review of this migration found five of the 21 migrated REST sensors were pure duplicates of native, MQTT-pushed entities that already existed: `sensor.vacuum_status`, `sensor.vacuum_battery`, `sensor.vacuum_mode`, `sensor.vacuum_fan_speed`, and `sensor.vacuum_water_usage` polled `/api/v2/robot/state/attributes` every 30-60s for data already available, unpolled, from `vacuum.valetudo_cleanusmaximus` (state, fan_speed), `sensor.valetudo_cleanusmaximus_battery_level`, and the `select.valetudo_cleanusmaximus_{mode,fan,water}` entities. Given how much of this project's effort has gone into Valetudo's request latency under load, running ~9 redundant REST polls/minute against it was worth removing.
+
+Audited all references first (one dashboard card pair, one automation) before touching anything:
+
+- `configuration.yaml`: removed the five REST sensor blocks (1568 bytes).
+- `automations.yaml`: `vacuum_controls_sync_on_startup` now sources `select.valetudo_cleanusmaximus_{mode,fan,water}` directly instead of the removed sensors. `sensor.vacuum_video_quality` (remaining bridge item, untouched) was left alone.
+- `dashboard-cleaning`: the Battery and Status mushroom-entity cards now point at `sensor.valetudo_cleanusmaximus_battery_level` and `vacuum.valetudo_cleanusmaximus`.
+
+Applied with the same discipline as the batches above: remote backup (`valetudo-polling-fix-backup-20260917T222616`, verified byte-for-byte), `config/core/check_config` returned `valid`, `rest`/`automation` domains reloaded, dashboard saved and read back, robot confirmed docked/idle throughout (no robot commands sent -- this only touched Home Assistant config). Live-verified afterward: the five removed entities show frozen `last_updated` timestamps (unchanged across a 35-minute window) confirming they're no longer polled, and all five native replacements report correct live values. The four surviving orphaned states (all but battery) will clear on Home Assistant's next restart, the same known behavior already documented above for `sensor.vacuum_total_statistics`.
+
 ## Backups and rollback
 
 Private Mac evidence archive:
