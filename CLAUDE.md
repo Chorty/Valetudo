@@ -263,6 +263,8 @@ Map data is stored below `/data/maploader`; active robot map data includes `/dat
 
 ## MQTT and Home Assistant
 
+On 2026-09-17 the HA bridge migration removed 49 of 54 port-6971 references from active configuration. Twenty-five commands and 21 REST sensors now use native Valetudo APIs; the cleaning dashboard uses MQTT statistics, drive speed stays in its HA helper, and TTS scripts use the native notify entity. Manual-control disable first cancels all four HA hold loops. Five bridge references remain for microphone gain, native recorder quality, and OGG playback, so the HA-only bridge remains enabled. Material writes on vendor map ID 221 passed a Foyer tile/restore test; physical joystick stopping still needs supervision. See [the migration, verification, and rollback record](docs/maintenance/2026-09-17-home-assistant-bridge.md).
+
 With Valetudo MQTT and Home Assistant autodiscovery enabled, the plugin adds:
 
 - a TTS `notify` entity, speaking-state diagnostic sensor, and stop-audio button;
