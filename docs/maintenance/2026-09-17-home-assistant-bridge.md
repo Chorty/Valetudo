@@ -46,7 +46,7 @@ Before writing, backed up `/data/ri`, `/data/map`, `/data/DivideMap`, and `/data
 
 On vendor map ID **221**, changed Foyer (segment **5**) from `wood_vertical` to `tile`, observed `tile` in the live map, and restored `wood_vertical` with readback. Other segment materials were checked throughout; the robot stayed docked/idle.
 
-The physical joystick disable-stops test remains open. A successful disable call while stationary cannot establish that a moving robot stops. The user has been asked to supervise in a clear, level area away from stairs.
+**Physical joystick disable-stops test: passed 2026-09-17.** The user manually drove the robot via the dpad in the Valetudo UI itself (not through this migration's HA path) and confirmed it stopped cleanly and responsively. This establishes what the stationary material-write test above could not.
 
 ### Upstream
 
@@ -79,6 +79,6 @@ On Home Assistant:
 
 For a full rollback, restore the pre-first-batch configuration and the original scripts/automations, validate with HA's configuration check, then reload REST commands, REST sensors, scripts, and automations. Restore the dashboard JSON through `lovelace/config/save` for `dashboard-cleaning`; do not overwrite live `.storage` files. No robot rollback is needed: runtime configuration was unchanged and Foyer's material was already restored.
 
-SSH access to HA using the two saved workspace password fields was rejected. Authenticated HA REST/WebSocket and the existing SMB credentials worked. Secrets were read from the workspace `.env`, not copied into source.
+The attempted SSH login incorrectly treated values in this repository's `.env` as the HA host's SSH credentials. The previously used SSH credentials were separate and were not stored in that file, so these failures did not test the known-good access path. Authenticated HA REST/WebSocket and the existing SMB credentials worked. Secrets were not copied into source.
 
 API references used: [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/), [RESTful Command](https://www.home-assistant.io/integrations/rest_command/), and [WebSocket API](https://developers.home-assistant.io/docs/api/websocket/).
