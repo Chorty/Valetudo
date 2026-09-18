@@ -78,15 +78,18 @@ Checked 2026-09-17. Work has happened in Codex threads in VS Code and, since 202
 
 | Role | Tool | Session | ID | Active (UTC) |
 |---|---|---|---|---|
-| Latest working session | Claude Code | Merged deployed branches (native #1/#2, plugin #5, parent #10/#11 upstream sync, #12/#13/#14 docs), 3 supervised Foyer cleanings, found+fixed+verified the video-priority latency issue (native #4/#5), clarified Duststreaming vs VacuumStreamer's camera | `5513e463-4970-4e68-b12c-4c858988bb9d` | 2026-09-16 → 2026-09-17 |
+| Latest working session | Claude Code | Reviewed and committed the Codex bridge-migration docs (below), investigated the polling/stale-entity/SSH findings it left open | (this session) | 2026-09-17 |
+| Previous working session | Codex | HA bridge migration (54→5 port-6971 references), Foyer material-write test, upstream no-op check; stopped before committing, two decisions left open (mic/quality controls, joystick supervision) | `01a0b13e-11be-7f41-9650-d172faf2e36c` | 2026-09-17 17:20 → 21:20 |
+| Earlier working session | Claude Code | Merged deployed branches (native #1/#2, plugin #5, parent #10/#11 upstream sync, #12/#13/#14 docs), 3 supervised Foyer cleanings, found+fixed+verified the video-priority latency issue (native #4/#5), clarified Duststreaming vs VacuumStreamer's camera | `5513e463-4970-4e68-b12c-4c858988bb9d` | 2026-09-16 → 2026-09-17 |
 | Earlier working session | Claude Code | Runtime switches build, deployment, profiling, fixes through `4656a38e` | `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` | 2026-08-15 → 2026-09-16 |
-| Latest Codex thread | Codex | `Verify corrected GUI profiling - Valetudo REV 2` | `019fe4b0-785e-73b2-bfc3-c14a513e9cf4` | 2026-08-09 04:03 → 2026-09-11 01:06 |
+| Latest Codex GUI-profiling thread | Codex | `Verify corrected GUI profiling - Valetudo REV 2` | `019fe4b0-785e-73b2-bfc3-c14a513e9cf4` | 2026-08-09 04:03 → 2026-09-11 01:06 |
 | Parent of the above | Codex | `Verify corrected GUI profiling - Valetudo` | `019f9be7-acc3-7c60-bbfb-932f7e7537a0` | 2026-07-26 00:51 → 2026-08-09 03:45 |
 
-- The latest Codex thread transcript is `~/.codex/sessions/2026/08/09/rollout-2026-08-09T00-03-18-019fe4b0-785e-73b2-bfc3-c14a513e9cf4.jsonl`. With its parent's history, it carries the five-minute profiling runs, the cleaning acceptance captures, the PR #9 merge approval, the Python-helper fix, the Deep Scan, and the paused salvage validation.
+- The latest Codex GUI-profiling thread transcript is `~/.codex/sessions/2026/08/09/rollout-2026-08-09T00-03-18-019fe4b0-785e-73b2-bfc3-c14a513e9cf4.jsonl`. With its parent's history, it carries the five-minute profiling runs, the cleaning acceptance captures, the PR #9 merge approval, the Python-helper fix, the Deep Scan, and the paused salvage validation.
+- The bridge-migration Codex thread transcript is `~/.codex/sessions/2026/09/17/rollout-2026-09-17T17-20-30-01a0b13e-11be-7f41-9650-d172faf2e36c.jsonl`; thread name `Locate CLAUDE.md and MEMORY.md` in `session_index.jsonl`.
 - Codex thread `01a098f5-c020-7210-82bf-205892028b24` was opened in this workspace at 2026-09-13 04:10 UTC but contains no messages.
 
-**Handoff (2026-09-17): next session is Codex.** All three repos are clean and on their default branches (Valetudo `master` `ef1fa766`, plugin `main` `eaf1551` matching the registered submodule pointer, native `master` `cd71f8b`); no open PRs. Read Recently Completed and Open Work below before starting -- item 3's acute finding (video-priority latency) is fixed and verified live, only a whole-house comparison remains; item 1 (`VACUUM_THEN_MOP`) and the rest of item 3 both need a real user-started cleaning, which is the natural next physical-robot session to run.
+**Handoff (2026-09-17): next session is whichever picks this up next.** All three repos are clean and on their default branches (Valetudo `master` `48a447ef`, plugin `main` `eaf1551` matching the registered submodule pointer, native `master` `cd71f8b`); no open PRs. Read Recently Completed and Open Work below before starting -- item 3's acute finding (video-priority latency) is fixed and verified live, only a whole-house comparison remains; item 1 (`VACUUM_THEN_MOP`) and the rest of item 3 both need a real user-started cleaning, which is the natural next physical-robot session to run. Item 2 (bridge migration) has two open user decisions (preserve-vs-remove mic/quality controls, joystick-test timing) -- see Open Work.
 
 ## Recently Completed (2026-09-13 through -16)
 
