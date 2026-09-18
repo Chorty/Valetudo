@@ -219,9 +219,27 @@ Zero HTTP failures either run. Valetudo CPU averaged 16.1%/16.4% (off/on) agains
 
 **Root cause found and fixed 2026-09-16, not yet re-verified live.** video-on increased isolated p95 by 104.6% and burst p95 by 27.2% here, far more than the 11.5%/18.4% found in the whole-house 2026-07-26 comparison above, even though AVA and Valetudo CPU were nearly identical between the two Foyer runs (242.5%/241.6% and 16.1%/16.4%). That ruled out ordinary CPU contention as usually measured. The actual cause: scheduling priority. Valetudo deliberately self-lowers to nice 10 (`os.setPriority` in `Valetudo.js`) so it never competes with AVA's real-time control loop; `go2rtc`/`video_monitor` ran at the default nice 0 instead, tied with AVA and ahead of Valetudo. On this 4-core SoC, cleaning alone pushes load past 14-20, and at that point scheduling order -- not CPU percentage -- decides who gets a turn.
 
-Fixed in native `vacuumstreamer` (`master` `cd71f8b`, PRs #4 and #5) and deployed to the robot the same day: `go2rtc`/`video_monitor` now run at nice 10 via `vs_exec_at_nice`, a helper that computes the adjustment needed to reach an absolute target regardless of the calling chain -- the first attempt used a plain relative `nice -n 10`, which worked for go2rtc but not video_monitor (spawned through go2rtc, itself already nice 10, landing at the nice 19 clamp instead of 10 -- caught by checking the live result on the robot). See `MEMORY.md` Open Work item 3 for the deploy id and rollback.
+Fixed in native `vacuumstreamer` (`master` `cd71f8b`, PRs #4 and #5) and deployed to the robot the same day: `go2rtc`/`video_monitor` now run at nice 10 via `vs_exec_at_nice`, a helper that computes the adjustment needed to reach an absolute target regardless of the calling chain -- the first attempt used a plain relative `nice -n 10`, which worked for go2rtc but not video_monitor (spawned through go2rtc, itself already nice 10, landing at the nice 19 clamp instead of 10 -- caught by checking the live result on the robot). See `MEMORY.md` for the deploy id and rollback.
 
 **Verified live 2026-09-16.** A third Foyer clean with the fix deployed: isolated p95 197.4 ms, down from the pre-fix 318.4 ms (-38.0%), now +26.9% over the video-off baseline (155.6 ms) instead of +104.6% -- close to the July whole-house figure of ~11.5%. One unrelated outlier (a single 4.3 s sample, with state/map/JS bundle also slow in the same batch but `root_ms` normal at 63 ms and no RSS/GC signature around it) points at Node's single-threaded event loop occasionally serializing CPU-bound response building under cleaning's concurrent load, not a priority issue; it doesn't affect p95 and is a separate, lower-priority item for later.
+
+### Perimeter-scoped cleaning comparison (2026-09-18)
+
+The user chose one vacuum-only perimeter run instead of two whole-house cleanings. The robot cleaned segments 1, 2, 3, 4, 6, and 7 once at low fan speed; interior Foyer segment 5 was excluded. The mop attachment remained installed, but operation mode stayed `vacuum`. Two consecutive five-minute windows were captured during the same cleaning: camera idle first, then one authenticated RTSP viewer. Both files contain 60/60 `cleaning`/`segment` samples and zero failures on every measured HTTP endpoint.
+
+| Scenario | Isolated p50/p95/max | Burst `root_ms` p95 | Minimum available memory | Gate |
+|---|---|---|---|---|
+| Camera idle | 38.6/115.4/269.2 ms | 395.8 ms | 481396 KB | Passes |
+| Camera watched | 68.2/221.1/608.3 ms | 824.2 ms | 471428 KB | Passes |
+
+The watched window had one isolated sample above 500 ms, but its p95 was well below the 500 ms cleaning gate. Compared with idle, watched isolated p95 rose 91.6% and burst p95 rose 108.2%. These are sequential portions of one route, so the relative delta mixes camera cost with changing room/navigation load and is not a causal whole-house A/B result. The operational result is strong: the watched p95 is 64.2% below the July 2026 whole-house watched result and 12.0% above the post-fix Foyer watched result, all requests succeeded, minimum memory remained about 460 MiB, and AVA/Valetudo PIDs stayed stable. AVA average CPU rose 12.6%, Valetudo average CPU fell 1.4%, and the watched video processes ran at the intended nice 10.
+
+Profiles:
+
+- `/Users/mattjoslin/Documents/ValetudoProfiles/2026-09-18T04-13-48-393Z_perimeter-cleaning-camera-idle-5min_wG2xVQ`
+- `/Users/mattjoslin/Documents/ValetudoProfiles/2026-09-18T04-21-33-780Z_perimeter-cleaning-camera-watched-5min_7aQyNu`
+
+After capture, the viewer was stopped, the cleaning was stopped, the robot returned to its dock at 93% with no error flag, and its original max fan preset was restored. This closes the requested perimeter-scope comparison. It does not claim the stronger causal result that would require separate matched whole-house runs.
 
 ## Plugin Capabilities
 
