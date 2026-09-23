@@ -21,8 +21,8 @@ Two configuration checks returned `valid`. REST commands/sensors, scripts, and a
 
 | Command or sensor | Remaining work |
 |---|---|
-| `rest_command.vacuum_set_mic_volume`, `sensor.vacuum_mic_volume` | User chose native replacements (2026-09-17). `MicrophoneGainCapability` (REST plus a Home Assistant number entity) is merged and built but not deployed. Repoint these to it after the deploy. |
-| `rest_command.vacuum_set_video_quality`, `sensor.vacuum_video_quality` | User chose native replacements (2026-09-17). `RecorderQualityCapability` (REST plus a Home Assistant select entity) is merged and built but not deployed. `input_select.vacuum_video_quality` and the startup-sync automation that reads `sensor.vacuum_video_quality` also need repointing. |
+| `rest_command.vacuum_set_mic_volume`, `sensor.vacuum_mic_volume` | User chose native replacements (2026-09-17). `MicrophoneGainCapability` (REST plus a Home Assistant number entity) is deployed (2026-09-23). Repoint these to it. Until then Home Assistant's mic sync loop (see `MEMORY.md` work-list item 2) drains the mic to 0 after each boot. |
+| `rest_command.vacuum_set_video_quality`, `sensor.vacuum_video_quality` | User chose native replacements (2026-09-17). `RecorderQualityCapability` (REST plus a Home Assistant select entity) is deployed (2026-09-23). `input_select.vacuum_video_quality` and the startup-sync automation that reads `sensor.vacuum_video_quality` also need repointing. |
 | `rest_command.vacuum_play_ogg` | No active caller found. Retire it or provide compatible OGG playback before shutting down its endpoint. The existing TTS file player uses `aplay` for non-MP3 files and is not a verified OGG replacement. |
 
 The native bridge quality handler edits capture/encoder settings in `recorder.cfg`; it is not the old plugin's no-op quality label. The replacement, `recorder_quality_ctl.sh`, restarts `video_monitor` through `video_monitor_launch.sh` (absolute nice 10) under the same `camera.lock` as `camera_wake.sh`; the bridge handler's raw `LD_PRELOAD` restart ran at nice 0 and would have undone the video-priority fix.

@@ -22,7 +22,7 @@ Never commit SSH keys, passwords, Home Assistant tokens, or MCP credentials. Cre
 
 ## Current Deployed Baseline
 
-Since 2026-09-16 the robot runs Valetudo `a959c53f` (release 2026.08.0), built with `tools/build_valetudo.sh`. It is fork `master` `31480f89` with upstream `190816db` merged in, plugin `eaf1551`, binary SHA-256 `dbe799c11a62af733686df1dfc126595507ce5e0c15d2dd3ea3bfc3f72aadfe9`. The native runtime is `cd71f8b` (`1d0b187` plus the video-process nice fix, deploy `nicefix2_0916` -- see Open Work item 3 in `MEMORY.md`). Backup and record: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_a959c53f_20260916`; rollback: `/data/valetudo.predeploy_sync0916` for the binary, the matching `.predeploy_nicefix2_0916` files on the robot for the native scripts. Deploys between 2026-09-13 and this one are listed in `MEMORY.md`.
+Since 2026-09-23 the robot runs Valetudo `fcdd2a85` (release 2026.08.0), built with `tools/build_valetudo.sh` from a clean detached clone. It is fork `master` `fcdd2a85` (the `a959c53f` upstream sync plus documentation and the plugin bump), plugin `6665f1d` (adds `MicrophoneGainCapability` and `RecorderQualityCapability`), binary SHA-256 `26365b9e0e6a44b771ba52a3626f393f64d36cbfa7f6150fe805afeb1c2cb4a7`. The native runtime is `ca57f153` (`cd71f8b` plus `mic_gain_ctl.sh`, `recorder_quality_ctl.sh` and the `vs_strip_leading_zeros` helper; every other runtime file is unchanged), deploy `micquality0923`. `ca57f153` is the tip of native PR #7's branch, which adds the two scripts to `tools/lib.sh` `NATIVE_SCRIPTS`; its tree equals native `master` `efdb11b` plus that one commit, so `master` matches the robot once PR #7 merges. Backup and record: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_fcdd2a85_20260923` (`DEPLOY_RECORD.txt` has the verification and findings); rollback: `/data/valetudo.predeploy_micquality0923` for the binary (`dbe799c1...`), the matching `.predeploy_micquality0923` files on the robot for the native scripts and boot script. The previous baseline `a959c53f` (fork `master` `31480f89` with upstream `190816db`, plugin `eaf1551`, native `cd71f8b`, deploy `sync0916`/`nicefix2_0916`, backup `valetudo_a959c53f_20260916`) is listed in `MEMORY.md`. Deploys between 2026-09-13 and this one are listed in `MEMORY.md`.
 
 After any binary-only Valetudo restart while the robot is docked, the map stays empty until the robot boots or its map changes. The Dreame firmware re-uploads its I-frame only on those events, so a reboot, not a rollback, is the fix.
 
@@ -248,8 +248,8 @@ After capture, the viewer was stopped, the cleaning was stopped, the robot retur
 | `VideoStreamCapability` | Starts and pauses the camera through native `camera_ctl.sh` (on-demand capture) and reports stream status and URLs; installs without `camera_ctl.sh` start the binaries directly |
 | `TextToSpeechCapability` | Speaks text, plays an approved local audio file, stops playback, and reports status |
 | `MapManagementCapability` | Saves, restores, renames, imports, exports, and deletes local floor-map slots |
-| `MicrophoneGainCapability` | Reads and sets the microphone gain (0-100) through native `mic_gain_ctl.sh`. Merged 2026-09-22, not yet deployed |
-| `RecorderQualityCapability` | Reads and sets the video encoder profile (`low`/`high`) through native `recorder_quality_ctl.sh`, which rewrites `recorder.cfg` and restarts `video_monitor` under `camera.lock`. Merged 2026-09-22, not yet deployed |
+| `MicrophoneGainCapability` | Reads and sets the microphone gain (0-100) through native `mic_gain_ctl.sh`. Deployed 2026-09-23 |
+| `RecorderQualityCapability` | Reads and sets the video encoder profile (`low`/`high`) through native `recorder_quality_ctl.sh`, which rewrites `recorder.cfg` and restarts `video_monitor` under `camera.lock`. Deployed 2026-09-23 |
 
 Plugin backend code lives in `vacuumstreamer-plugin/backend/`. The parent repository supplies narrow registration hooks for capability exports, Dreame implementations, routers, robot registration, and MQTT mappings. Frontend map-management code remains in the parent because Valetudo's TypeScript capability enum and UI routing cannot be extended from the JavaScript submodule.
 
@@ -281,9 +281,9 @@ All paths are below `/api/v2/robot/capabilities`.
 - `GET /MapManagementCapability/export/:id` — export a slot
 - `POST /MapManagementCapability/import` — import a slot archive
 
-### Microphone gain and recorder quality (merged, not yet deployed)
+### Microphone gain and recorder quality (deployed 2026-09-23)
 
-- `GET /MicrophoneGainCapability` returns `{"gain":N}`; `PUT` with `{"action":"set_gain","value":N}` for an integer 0-100. A value outside the range is rejected, not clamped
+- `GET /MicrophoneGainCapability` returns `{"gain":N}`; `PUT` with `{"action":"set_gain","value":N}` for an integer 0-100. A value outside the range is rejected, not clamped (HTTP 500 from the capability's error path, 400 for a non-number). Set truncates like the bridge handler did, so a get-then-set drifts one step; see `MEMORY.md` for the follow-up
 - `GET /RecorderQualityCapability` returns `{"profile","width","height","framerate","bitrate"}`; `PUT` with `{"action":"set_quality","profile":"low"|"high"}` returns the same object after the change. `low` is 864x480/15 fps/600 kbps and `high` is 640x480/25 fps/2 Mbps
 - `GET .../properties` on each lists the range or the supported profiles
 
@@ -297,7 +297,9 @@ With Valetudo MQTT and Home Assistant autodiscovery enabled, the plugin adds:
 
 - a TTS `notify` entity, speaking-state diagnostic sensor, and stop-audio button;
 - a video-stream switch and disabled-by-default RTSP/WebRTC URL sensors;
-- once deployed, a `Microphone Gain` number entity and a `Recorder Quality` select entity (both config category), which replace the last two port-6971 controls.
+- a `Microphone Gain` number entity and a `Recorder Quality` select entity (both config category; live since 2026-09-23, `number.valetudo_cleanusmaximus_microphone_gain` and `select.valetudo_cleanusmaximus_recorder_quality`), which replace the last two port-6971 controls once Home Assistant is repointed. A change made over REST reaches these entities within about 30 s (Valetudo's periodic refresh).
+
+**Known Home Assistant mic feedback loop (found 2026-09-23, still active until Home Assistant is repointed).** `sensor.vacuum_mic_volume` (a 60 s bridge poll) triggers `Vacuum Volume Sync on Startup`, which copies it into `input_number.vacuum_mic_volume`; that triggers `Vacuum Mic Volume Changed`, which writes it back through the bridge. Reads and writes both truncate, so every pass lowers the mic by one step (raw 19, the value the boot scripts set, drains 61% -> 58 -> 54 -> 51 -> ... -> 0 over about 20 minutes after each boot). Any mic change made by hand is drained the same way. Repointing Home Assistant at `number.valetudo_cleanusmaximus_microphone_gain` removes the loop.
 
 The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video. Since the 2026-09-13 deployment the video switch resumes or pauses the camera, and with on-demand capture it stays on while the camera waits for a viewer. On 2026-09-15, with the camera login on, Home Assistant was re-verified with a token. The Generic camera `camera.192_168_1_31_2` holds the go2rtc credentials and returned a still JPEG and an HLS stream. The video switch paused and resumed the camera, the URL sensors were present, TTS spoke, and mop drying, mop-dock cleaning and auto-empty each ran through HA buttons. The `dashboard-cleaning` camera card plays through Home Assistant (`live_provider: ha`), because a browser cannot send go2rtc credentials.
 
