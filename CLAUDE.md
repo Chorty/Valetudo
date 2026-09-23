@@ -248,10 +248,14 @@ After capture, the viewer was stopped, the cleaning was stopped, the robot retur
 | `VideoStreamCapability` | Starts and pauses the camera through native `camera_ctl.sh` (on-demand capture) and reports stream status and URLs; installs without `camera_ctl.sh` start the binaries directly |
 | `TextToSpeechCapability` | Speaks text, plays an approved local audio file, stops playback, and reports status |
 | `MapManagementCapability` | Saves, restores, renames, imports, exports, and deletes local floor-map slots |
+| `MicrophoneGainCapability` | Reads and sets the microphone gain (0-100) through native `mic_gain_ctl.sh`. Merged 2026-09-22, not yet deployed |
+| `RecorderQualityCapability` | Reads and sets the video encoder profile (`low`/`high`) through native `recorder_quality_ctl.sh`, which rewrites `recorder.cfg` and restarts `video_monitor` under `camera.lock`. Merged 2026-09-22, not yet deployed |
 
 Plugin backend code lives in `vacuumstreamer-plugin/backend/`. The parent repository supplies narrow registration hooks for capability exports, Dreame implementations, routers, robot registration, and MQTT mappings. Frontend map-management code remains in the parent because Valetudo's TypeScript capability enum and UI routing cannot be extended from the JavaScript submodule.
 
-Video quality selection is intentionally absent. The removed selector changed only an in-memory label and restarted the pipeline; it never changed capture resolution, recorder settings, bitrate, or go2rtc output.
+The removed video-quality selector changed only an in-memory label and restarted the pipeline; it never changed capture resolution, recorder settings, bitrate, or go2rtc output. `RecorderQualityCapability` is a different, real control: it edits camera 0's encoder settings in `recorder.cfg` and applies them by restarting `video_monitor`.
+
+Both new capabilities register under the `CAMERA` switch. Their MQTT handles are `OPTIONAL = false`, like the other plugin handles: the parent's generated `optionalExposedCapabilities` enum cannot be extended from the plugin, so an `OPTIONAL = true` handle could never be enabled. The plugin's execFile helper is `dreame-capabilities/runNativeScript.js`; it removes `LD_PRELOAD` and the go2rtc credentials from the script environment.
 
 ## Custom Valetudo API
 
@@ -277,6 +281,12 @@ All paths are below `/api/v2/robot/capabilities`.
 - `GET /MapManagementCapability/export/:id` — export a slot
 - `POST /MapManagementCapability/import` — import a slot archive
 
+### Microphone gain and recorder quality (merged, not yet deployed)
+
+- `GET /MicrophoneGainCapability` returns `{"gain":N}`; `PUT` with `{"action":"set_gain","value":N}` for an integer 0-100. A value outside the range is rejected, not clamped
+- `GET /RecorderQualityCapability` returns `{"profile","width","height","framerate","bitrate"}`; `PUT` with `{"action":"set_quality","profile":"low"|"high"}` returns the same object after the change. `low` is 864x480/15 fps/600 kbps and `high` is 640x480/25 fps/2 Mbps
+- `GET .../properties` on each lists the range or the supported profiles
+
 Map data is stored below `/data/maploader`; active robot map data includes `/data/ri`, `/data/map`, `/data/DivideMap`, and `/data/config/ava/mult_map.json`.
 
 ## MQTT and Home Assistant
@@ -286,7 +296,8 @@ On 2026-09-17 the HA bridge migration removed 49 of 54 port-6971 references from
 With Valetudo MQTT and Home Assistant autodiscovery enabled, the plugin adds:
 
 - a TTS `notify` entity, speaking-state diagnostic sensor, and stop-audio button;
-- a video-stream switch and disabled-by-default RTSP/WebRTC URL sensors.
+- a video-stream switch and disabled-by-default RTSP/WebRTC URL sensors;
+- once deployed, a `Microphone Gain` number entity and a `Recorder Quality` select entity (both config category), which replace the last two port-6971 controls.
 
 The parent also exposes mop-dock cleaning and drying actions and supported robot quirks as Home Assistant buttons, switches, or selects. Camera media remains on go2rtc/RTSP; MQTT carries discovery, state, and commands rather than video. Since the 2026-09-13 deployment the video switch resumes or pauses the camera, and with on-demand capture it stays on while the camera waits for a viewer. On 2026-09-15, with the camera login on, Home Assistant was re-verified with a token. The Generic camera `camera.192_168_1_31_2` holds the go2rtc credentials and returned a still JPEG and an HLS stream. The video switch paused and resumed the camera, the URL sensors were present, TTS spoke, and mop drying, mop-dock cleaning and auto-empty each ran through HA buttons. The `dashboard-cleaning` camera card plays through Home Assistant (`live_provider: ha`), because a browser cannot send go2rtc credentials.
 
@@ -328,7 +339,7 @@ Required on the robot:
 
 - `/data/vacuumstreamer/vacuumstreamer.so`, `video_monitor`, `go2rtc`, `go2rtc.yaml` and `ffmpeg`
 - `/data/vacuumstreamer/tts_handler.sh`, launched through `tcpsvd` on port 6971
-- Runtime scripts from `Chorty/vacuumstreamer` `master`: `vacuumstreamer_lib.sh`, `vacuumstreamer_boot.sh`, `go2rtc_launch.sh`, `video_monitor_launch.sh`, `camera_wake.sh`, `camera_supervisor.sh`, `camera_ctl.sh` and `http_bridge.sh`. `tools/` in that repository holds the backup, build and gated deploy scripts
+- Runtime scripts from `Chorty/vacuumstreamer` `master`: `vacuumstreamer_lib.sh`, `vacuumstreamer_boot.sh`, `go2rtc_launch.sh`, `video_monitor_launch.sh`, `camera_wake.sh`, `camera_supervisor.sh`, `camera_ctl.sh`, `mic_gain_ctl.sh`, `recorder_quality_ctl.sh` and `http_bridge.sh`. `tools/` in that repository holds the backup, build and gated deploy scripts
 - `/data/vacuumstreamer/vacuumstreamer.conf`, installed once and never overwritten by later deployments
 
 ### Runtime switches
@@ -398,7 +409,7 @@ Work on this repository has happened in Codex threads in VS Code and, since 2026
 - Codex thread names: `~/.codex/session_index.jsonl`
 - Claude Code transcripts: `~/.claude/projects/-Users-mattjoslin-Documents-GitHub-Valetudo/`
 
-Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-17 the latest working session is Claude Code session `5513e463-4970-4e68-b12c-4c858988bb9d`, which merged the deployed branches, deployed the upstream sync, ran three supervised Foyer cleanings, and found, fixed and live-verified the video-priority latency issue; before it, `a53fcc89-ed26-475f-b8f4-efa3d70a7db1` built, deployed and profiled the runtime switches. The latest Codex thread is `Verify corrected GUI profiling - Valetudo REV 2` (`019fe4b0-785e-73b2-bfc3-c14a513e9cf4`). `MEMORY.md` records both and carries an explicit handoff note: the next session is Codex.
+Find relevant sessions by searching transcripts for this repository path, then order them by file modification time. A resumed Codex thread keeps its original date directory, so the directory date is not its last-activity date, and some threads are opened in this workspace without any messages. As of 2026-09-23 the latest working session is Claude Code session `1705630b-0612-4fa2-a5de-27d7c1f0f02f` (titled `Locate CLAUDE.md and MEMORY.md`, the same title as the Codex thread `01a0b13e-11be-7f41-9650-d172faf2e36c` that preceded it), which reviewed the Codex bridge-migration work, applied the Home Assistant polling cleanup, built and reviewed the mic-gain and recorder-quality replacements, and built the parent for deployment; two short Claude Code follow-ups (`592f661a-8b36-4b80-8305-42123929db32`, untitled, and `fd142e7e-a17c-4146-8a6f-87a6abd4e4a2`, "Merge plugin and native PRs") merged the PRs and checked deployment state. Titles are not unique across tools, so search by ID. `MEMORY.md` carries the handoff note and the deployment sequence.
 
 ## Development Rules
 
@@ -410,6 +421,8 @@ Find relevant sessions by searching transcripts for this repository path, then o
 - Review `git status` in the parent, plugin, and native companion independently.
 - Test robot shell scripts against BusyBox behavior, and run the native script tests under `dash`.
 - Build deployment artifacts from a clean clone checked out detached at the deployed commit.
+- A new native runtime script must also be added to `NATIVE_SCRIPTS` in the native repository's `tools/lib.sh`, or `deploy_native.sh` never installs it. `test/run_tests.sh` checks that the scripts the plugin calls are listed.
+- Shell scripts run under BusyBox ash, and dash is the test stand-in: do not use `$((10#$x))` (unsupported), `sed -i` (its argument differs between BSD and GNU/BusyBox sed), or plain arithmetic on user-supplied digits (a leading zero reads as octal; use `vs_strip_leading_zeros`).
 
 ## Upstream Synchronization
 
