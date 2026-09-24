@@ -21,7 +21,7 @@ Two configuration checks returned `valid`. REST commands/sensors, scripts, and a
 
 | Command or sensor | Remaining work |
 |---|---|
-| `rest_command.vacuum_set_mic_volume`, `sensor.vacuum_mic_volume` | User chose native replacements (2026-09-17). `MicrophoneGainCapability` (REST plus a Home Assistant number entity) is deployed (2026-09-23). Repoint these to it. Until then Home Assistant's mic sync loop (see `MEMORY.md` work-list item 2) drains the mic to 0 after each boot. |
+| `rest_command.vacuum_set_mic_volume`, `sensor.vacuum_mic_volume` | User chose native replacements (2026-09-17). `MicrophoneGainCapability` (REST plus a Home Assistant number entity) is deployed (2026-09-23). The two mic automations were repointed to it on 2026-09-24 (loop-guarded; see `MEMORY.md` work-list item 2); these two definitions are now unused and go with the bridge. |
 | `rest_command.vacuum_set_video_quality`, `sensor.vacuum_video_quality` | User chose native replacements (2026-09-17). `RecorderQualityCapability` (REST plus a Home Assistant select entity) is deployed (2026-09-23). `input_select.vacuum_video_quality` and the startup-sync automation that reads `sensor.vacuum_video_quality` also need repointing. |
 | `rest_command.vacuum_play_ogg` | No active caller found. Retire it or provide compatible OGG playback before shutting down its endpoint. The existing TTS file player uses `aplay` for non-MP3 files and is not a verified OGG replacement. |
 
