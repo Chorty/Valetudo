@@ -31,6 +31,11 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
                         [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP]: 0,
                         [stateAttrs.PresetSelectionStateAttribute.MODE.MOP]: 1,
                         [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM]: 2,
+                        // Fork addition, at the owner's request: upstream removed this in e42adcb7 for the
+                        // models without newOrder segment cleaning (this one included) without verifying it
+                        // per model. Kept here until a supervised cleaning on this robot shows whether preset 3
+                        // vacuums first and then mops (MEMORY.md work-list item 1); remove it again if not.
+                        [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP]: 3,
                     }),
                     highResolutionWaterGrades: true
                 },
