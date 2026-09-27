@@ -4,6 +4,11 @@ Model Context Protocol server that exposes your Valetudo vacuum's capabilities a
 
 ## Quick Start
 
+This robot has Valetudo Basic Auth enabled. Set both `VALETUDO_USERNAME` and
+`VALETUDO_PASSWORD` in the MCP process's private environment before starting
+it; the command below assumes they are already set. MCP does not read the Mac
+keychain entry used by the deployment tools.
+
 ```bash
 cd mcp-server
 npm install
@@ -64,9 +69,10 @@ Add to `.vscode/mcp.json` in your workspace:
 | `VALETUDO_PASSWORD` | *(unset)* | Basic Auth password; must be paired with `VALETUDO_USERNAME` |
 | `VALETUDO_TIMEOUT_MS` | `10000` | Per-request timeout, from 100 through 120000 milliseconds |
 
-Leave `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` unset while Valetudo Basic
-Auth is disabled. If Basic Auth is enabled later, set both variables in the MCP
-client's environment rather than committing them to this repository.
+On this deployment, set both `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` in the
+MCP client's private environment. Leave both unset only on installations that
+have Basic Auth disabled. Keep the password out of committed configuration and
+command-line URLs. The Mac-to-robot connection still uses HTTP on the LAN.
 
 ## Optional SSH Tunnel
 
@@ -94,9 +100,11 @@ it as a network service.
 
 **Total: 49 tools**
 
-Video quality selection was removed because it only changed an in-memory label
-and restarted the pipeline; it never changed capture resolution, bitrate, the
-recorder, or go2rtc output.
+MCP has no video-quality tool. Its older selector only changed an in-memory
+label and restarted the pipeline. The separate, current
+`RecorderQualityCapability` exposes a Home Assistant select entity that calls
+the native recorder control and changes the encoder bitrate between the low
+and high 864×480 profiles.
 
 ## Creating a Plugin
 
