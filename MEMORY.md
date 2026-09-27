@@ -1,21 +1,22 @@
 # Project Memory Index
 
-Last updated: 2026-09-23
+Last updated: 2026-09-26
 
 ## Repositories
 
 | Component | Location | Active branch | Remote |
 |---|---|---|---|
-| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | `master` `f67b9308` (docs on top of `fcdd2a85`, pushed to `fork/master`). The robot runs `fcdd2a85` (deployed 2026-09-23, includes upstream `190816db`). Fresh upstream fetch on 2026-09-17 found no new commits to merge | `Chorty/Valetudo` via `fork` |
-| VacuumStreamer plugin | `vacuumstreamer-plugin/` | `main` `6665f1d` (merge of PR #6: `MicrophoneGainCapability`, `RecorderQualityCapability`), registered as the parent's submodule pointer; deployed on the robot 2026-09-23 | `Chorty/valetudo-vacuumstreamer-plugin` |
-| Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | `master` `9892d68` (PRs #8-#10 merged 2026-09-24); the robot runs it (deploy `native0924`) | `Chorty/vacuumstreamer` |
+| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | `master` `aa881436` (docs PR #22 merged); robot binary `261bf1ff` from PR #21. Later parent commits change docs and the docs-only plugin pointer | `Chorty/Valetudo` via `fork` |
+| VacuumStreamer plugin | `vacuumstreamer-plugin/` | `main` `b02e72e` (docs PR #7 merged), registered as the parent's submodule pointer; the robot binary was built with runtime plugin `6665f1d` | `Chorty/valetudo-vacuumstreamer-plugin` |
+| Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | `master` `6ecf58f` (docs PR #14 merged); robot runtime files match `b6fb8bb` from PR #13. Later native changes affect Mac tools, HA automation source, tests, and docs | `Chorty/vacuumstreamer` |
 
 On 2026-09-16 every deployed branch was merged into its default branch, including the upstream sync (PR #11, `master` `23db0322`). `agent/final-gui-resource-acceptance` and `test/upstream-sync-2026-09` were deleted.
 
 The native companion's former untracked backups, extracted device data, and build artifacts were moved intact to `/Users/mattjoslin/Documents/GitHub/vacuumstreamer_local_archive_20260721_222234`. Its 16,330-entry manifest has SHA-256 `2fff74550715713760b9ca9c5bb07ff434e1c86e296e0b44a26d6ea9df0712ec`.
 
-## Deployed Baseline
+## Deployed Baseline and History
 
+- Current as last verified 2026-09-26: Valetudo `261bf1ff`, binary SHA-256 `7e6e059748d7ed37d07c32f0fa92f6a50eded48dbf6959afa04e393f29c8689c`, built with plugin `6665f1d`; native runtime `b6fb8bb` (`HTTPS_PROXY=on`, `HTTP_BRIDGE=off`, Basic Auth on). See the latest handoff below and the [next-session handoff](docs/maintenance/2026-09-26-next-session-handoff.md) for verification and remaining work.
 - Deployed 2026-09-13: Valetudo `b589bd6d2a3c8d006dd6859aa910677e199e6e47` with plugin `20545a8c27f9422612bb514b3780f65a31d6e074`, binary SHA-256 `94b6beb6a8b26d288faaa2345e53b43523bd478c8307d07b16f6b9061bdca1ff`; native VacuumStreamer `6b60354dafcba5dd6e23b6ad3e07ea0a054b382c`
 - Backup package: `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_b589bd6d_20260913` (sealed; see `BACKUP_INFO.txt` and `DEPLOY_RECORD.txt`); contains device secrets and SSH keys
 - Active since 2026-09-16 15:01 EDT: Valetudo `a959c53f` (upstream sync through `190816db`, release 2026.08.0; plugin `eaf1551`), SHA-256 `dbe799c11a62af733686df1dfc126595507ce5e0c15d2dd3ea3bfc3f72aadfe9`, native unchanged (`1d0b187`); package `/Users/mattjoslin/Documents/ValetudoBackups/valetudo_a959c53f_20260916` (sealed, `DEPLOY_RECORD.txt`); rollback: `/data/valetudo.predeploy_sync0916`. The binary gate passed, then the robot was rebooted so the map would reload (see Recently Completed).
@@ -92,7 +93,7 @@ Checked 2026-09-25. Work has happened in Codex threads in VS Code and, since 202
 - The bridge-migration Codex thread transcript is `~/.codex/sessions/2026/09/17/rollout-2026-09-17T17-20-30-01a0b13e-11be-7f41-9650-d172faf2e36c.jsonl`; thread name `Locate CLAUDE.md and MEMORY.md` in `session_index.jsonl`.
 - Codex thread `01a098f5-c020-7210-82bf-205892028b24` was opened in this workspace at 2026-09-13 04:10 UTC but contains no messages.
 
-**Handoff 2026-09-26 (latest):** The robot still runs Valetudo `261bf1ff` and native runtime `b6fb8bb` (`httpssrc0925`), now with Basic Auth on, `HTTP_BRIDGE=off`, and `HTTPS_PROXY=on`. The HA-issued robot-only certificate expires 2026-12-25 and is installed at mode 0600; Caddy v2.11.4 passed the 12/12 post-reboot gate. HA's existing Advanced SSH & Web Terminal app generated the dedicated private key in `/config/.ssh`; the restricted public key is in `/mnt/misc/authorized_keys` and active `/tmp/.ssh/authorized_keys`. HA's 25 REST commands and 16 REST sensors use verified HTTPS; all 16 sensors were available after Core restart. Daily 02:00 Let's Encrypt checks and 03:00 install attempts are enabled, with a persistent notification on failed install or a certificate within 14 days of expiry. HA Core's certificate-sync action returned 0; an authenticated Mac client was denied with 403, and HA got 401 without/wrong Basic Auth and 200 with its stored login. The running Core's config-check API returned `valid`; the separate `ha core check` container reported the pre-existing `/media/recording` path missing. Low and high each decoded 45 H.264 frames at 864x480; the high frame had no green smear and low was restored. The retired TTS high branch passed an isolated on-robot test. Native local tests are 306/306 in dash and sh. The Mac deploy tools and MCP still use HTTP on the LAN. Preset-3 supervised, user-started cleaning remains pending; do not start it automatically. The camera-card play/pause and profiler-login follow-ups remain open. Native PR #13 merged into `Chorty/vacuumstreamer` `master`; PR #12 was closed as redundant. Native docs PR #14 and plugin docs PR #7 merged; this parent documentation update advances the plugin pointer for those docs-only changes.
+**Handoff 2026-09-26 (latest):** The robot still runs Valetudo `261bf1ff` and native runtime `b6fb8bb` (`httpssrc0925`), now with Basic Auth on, `HTTP_BRIDGE=off`, and `HTTPS_PROXY=on`. The HA-issued robot-only certificate expires 2026-12-25 and is installed at mode 0600; Caddy v2.11.4 passed the 12/12 post-reboot gate. HA's existing Advanced SSH & Web Terminal app generated the dedicated private key in `/config/.ssh`; the restricted public key is in `/mnt/misc/authorized_keys` and active `/tmp/.ssh/authorized_keys`. HA's 25 REST commands and 16 REST sensors use verified HTTPS; all 16 sensors were available after Core restart. Daily 02:00 Let's Encrypt checks and 03:00 install attempts are enabled, with a persistent notification on failed install or a certificate within 14 days of expiry. HA Core's certificate-sync action returned 0; an authenticated Mac client was denied with 403, and HA got 401 without/wrong Basic Auth and 200 with its stored login. The running Core's config-check API returned `valid`; the separate `ha core check` container reported the pre-existing `/media/recording` path missing. Low and high each decoded 45 H.264 frames at 864x480; the high frame had no green smear and low was restored. The retired TTS high branch passed an isolated on-robot test. Native local tests are 306/306 in dash and sh. The Mac deploy tools and MCP still use HTTP on the LAN. Preset-3 supervised, user-started cleaning remains pending; do not start it automatically. The camera-card play/pause and profiler-login follow-ups remain open. Native PR #13 and docs PR #14 merged into `Chorty/vacuumstreamer` `master`; PR #12 was closed as redundant. Plugin docs PR #7 and parent docs PR #22 merged. The parent's plugin pointer is `b02e72e`; all three local default branches were clean and matched their tracking refs at this handoff. See [next-session handoff](docs/maintenance/2026-09-26-next-session-handoff.md) for the short starting point and remaining priorities.
 
 **Rollout decision 2026-09-26:** The owner chose to proceed without the supervised preset-3 cleaning test. Preset 3 stays enabled, but its vacuum-then-mop sequence remains unverified. A future user-started cleaning can establish the behavior; remove the preset if it fails.
 
@@ -162,6 +163,7 @@ just the closure log so the work list below stays focused on current status.
 ## Documentation Map
 
 - `CLAUDE.md` — primary integration and operations guide
+- `docs/maintenance/2026-09-26-next-session-handoff.md` — concise current state, outstanding checks, and next-session guardrails
 - `.github/copilot-instructions.md` — concise coding-agent guardrails
 - `mcp-server/README.md` — MCP setup, environment variables, tunnel, and tools
 - `vacuumstreamer-plugin/README.md` — plugin MQTT/Home Assistant entities
