@@ -4,16 +4,13 @@ import test from "node:test";
 import { readConfig } from "../lib/config.js";
 
 test("requires an explicit Valetudo host", () => {
-    assert.throws(() => readConfig({}), /VALETUDO_HOST is required/);
+    assert.throws(() => readConfig({}), /VALETUDO_URL or VALETUDO_HOST is required/);
 });
 
 test("applies safe defaults", () => {
     assert.deepEqual(readConfig({VALETUDO_HOST: "192.168.1.31"}), {
-        host: "192.168.1.31",
-        port: 80,
+        baseUrl: "https://192.168.1.31",
         timeoutMs: 10000,
-        username: undefined,
-        password: undefined,
     });
 });
 

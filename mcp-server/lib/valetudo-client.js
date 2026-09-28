@@ -6,6 +6,8 @@
  */
 
 import fetch from "node-fetch";
+import https from "node:https";
+import security from "../../util/valetudo_http_security.js";
 
 export class ValetudoClient {
     /**
@@ -21,14 +23,13 @@ export class ValetudoClient {
      *   memory in full before it can be parsed.
      */
     constructor(options) {
-        this.baseUrl = `http://${options.host}:${options.port || 80}`;
-        this.auth = null;
+        const protocol = ["127.0.0.1", "[::1]"].includes(options.host) ? "http" : "https";
+        this.baseUrl = security.validateOrigin(options.baseUrl || `${protocol}://${options.host}:${options.port || (protocol === "https" ? 443 : 80)}`);
+        this.auth = security.authorization(options);
+        this.agent = new https.Agent({rejectUnauthorized: true});
         this.timeoutMs = options.timeoutMs || 10000;
         this.maxResponseBytes = options.maxResponseBytes || 10 * 1024 * 1024;
 
-        if (options.username && options.password) {
-            this.auth = Buffer.from(`${options.username}:${options.password}`).toString("base64");
-        }
     }
 
     /**
@@ -39,7 +40,13 @@ export class ValetudoClient {
      * @returns {Promise<any>}
      */
     async request(path, options = {}) {
-        const url = `${this.baseUrl}${path}`;
+        if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || /[\\\r\n]/.test(path)) {
+            throw new Error("Invalid Valetudo API path");
+        }
+        const url = new URL(path, this.baseUrl);
+        if (url.origin !== this.baseUrl) {
+            throw new Error("Invalid Valetudo API origin");
+        }
         const method = options.method || "GET";
 
         const headers = {
@@ -47,13 +54,14 @@ export class ValetudoClient {
         };
 
         if (this.auth) {
-            headers["Authorization"] = `Basic ${this.auth}`;
+            headers["Authorization"] = this.auth;
         }
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
         timeout.unref?.();
-        const fetchOptions = { method, headers, signal: controller.signal };
+        const fetchOptions = { method, headers, signal: controller.signal, redirect: "manual",
+            agent: url.protocol === "https:" ? this.agent : undefined };
 
         if (options.body && (method === "PUT" || method === "POST")) {
             fetchOptions.body = JSON.stringify(options.body);
@@ -71,18 +79,22 @@ export class ValetudoClient {
             if (error.tooLarge) {
                 throw new Error(`Valetudo API response exceeded ${this.maxResponseBytes} bytes`);
             }
-            throw new Error(`Valetudo API request failed: ${error.message}`);
+            throw new Error("Valetudo API request failed (connection or TLS verification)");
         } finally {
             clearTimeout(timeout);
         }
 
         if (!response.ok) {
-            throw new Error(`Valetudo API error: ${response.status} ${response.statusText} — ${text}`);
+            throw new Error(`Valetudo API error: HTTP ${response.status}`);
         }
 
         const contentType = response.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
-            return text.length > 0 ? JSON.parse(text) : { ok: true };
+            try {
+                return text.length > 0 ? JSON.parse(text) : { ok: true };
+            } catch {
+                throw new Error("Valetudo API returned invalid JSON");
+            }
         }
 
         // Some endpoints return 200 with no body

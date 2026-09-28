@@ -32,6 +32,7 @@ test("stdio server exposes 49 tools and forwards representative calls", async ()
         cwd: path.join(__dirname, ".."),
         env: {
             VALETUDO_HOST: "127.0.0.1",
+            VALETUDO_AUTH_SERVICE: "",
             VALETUDO_PORT: String(port),
             VALETUDO_TIMEOUT_MS: "1000",
         },

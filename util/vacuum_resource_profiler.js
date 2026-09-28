@@ -1,7 +1,9 @@
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
+const https = require("node:https");
 const path = require("node:path");
+const security = require("./valetudo_http_security");
 
 const CAPTURE_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
 const HTTP_RESPONSE_LIMIT_BYTES = 4 * 1024 * 1024;
@@ -10,7 +12,7 @@ const SSH_OUTPUT_LIMIT_BYTES = 1024 * 1024;
 const PROCESS_NAMES = ["ava", "valetudo", "video_monitor", "go2rtc", "maploader", "dmr_player"];
 const DEFAULTS = Object.freeze({
     duration: 600,
-    httpBase: "http://192.168.1.31",
+    httpBase: "https://mattjoslin-valetudo.duckdns.org",
     interval: 5,
     label: "profile",
     output: path.join(process.env.HOME || process.cwd(), "Documents", "ValetudoProfiles"),
@@ -115,11 +117,7 @@ function toKebabCase(value) {
 }
 
 function validateHttpBase(value) {
-    const parsed = new URL(value);
-    if (parsed.protocol !== "http:" || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
-        throw new Error("--http-base must be an HTTP origin without credentials, a path, a query, or a fragment");
-    }
-    return parsed.origin;
+    return security.validateOrigin(value);
 }
 
 function validateSshHost(value) {
@@ -241,7 +239,7 @@ function executeSsh(host, timeout) {
             "--",
             validatedHost,
             REMOTE_SAMPLE_COMMAND
-        ], {stdio: ["ignore", "pipe", "ignore"]});
+        ], {stdio: ["ignore", "pipe", "ignore"], env: {...process.env, VALETUDO_PASSWORD: undefined, VALETUDO_USERNAME: undefined}});
         const stdout = [];
         let stdoutBytes = 0;
         let settled = false;
@@ -281,7 +279,7 @@ function executeSsh(host, timeout) {
     });
 }
 
-function measureHttp(url, timeout, captureBody = false, acceptEncoding = "identity") {
+function measureHttp(url, timeout, captureBody = false, acceptEncoding = "identity", credentials = {}) {
     return new Promise(resolve => {
         const started = process.hrtime.bigint();
         let firstByteMs = null;
@@ -297,7 +295,17 @@ function measureHttp(url, timeout, captureBody = false, acceptEncoding = "identi
         }, timeout);
 
         try {
-            request = http.get(url, {headers: {"Accept-Encoding": acceptEncoding, "User-Agent": "ValetudoResourceProfiler/1"}}, incoming => {
+            const target = new URL(url);
+            if (target.username || target.password) {
+                throw new Error("credential URL refused");
+            }
+            security.validateOrigin(target.origin);
+            const headers = {"Accept-Encoding": acceptEncoding, "User-Agent": "ValetudoResourceProfiler/1"};
+            const auth = security.authorization(credentials);
+            if (auth) {
+                headers.Authorization = auth;
+            }
+            request = (target.protocol === "https:" ? https : http).get(target, {headers, rejectUnauthorized: true}, incoming => {
                 response = incoming;
                 const chunks = [];
                 response.once("data", () => {
@@ -326,7 +334,7 @@ function measureHttp(url, timeout, captureBody = false, acceptEncoding = "identi
                     contentEncoding: response.headers["content-encoding"] || "identity",
                     durationMs: elapsedMs(started),
                     firstByteMs: firstByteMs ?? elapsedMs(started),
-                    ok: response.statusCode >= 200 && response.statusCode < 400,
+                    ok: response.statusCode >= 200 && response.statusCode < 300,
                     status: response.statusCode
                 }));
             });
@@ -434,7 +442,7 @@ function summarize(samples) {
     };
     for (const key of ["rootIsolated", "root", "state", "map", "javascript", "video"]) {
         const measurements = samples.map(sample => sample.http?.[key]).filter(Boolean);
-        const durations = measurements.map(value => value.durationMs);
+        const durations = measurements.filter(value => value.ok).map(value => value.durationMs);
         summary.http[key] = {
             failures: measurements.filter(value => !value.ok).length,
             maximumMs: maximum(durations),
@@ -508,7 +516,7 @@ function samplesToCsv(samples) {
     return [columns.map(column => column[0]).join(","), ...samples.map(sample => columns.map(column => csvEscape(column[1](sample))).join(","))].join("\n") + "\n";
 }
 
-async function runProfile(options, dependencies = {}) {
+async function runProfile(options, dependencies = {}, credentials = {}) {
     const profileOptions = {
         duration: parseBoundedInteger("duration", options.duration, 5, 86400),
         httpBase: validateHttpBase(options.httpBase),
@@ -518,15 +526,21 @@ async function runProfile(options, dependencies = {}) {
         timeout: parseBoundedInteger("timeout", options.timeout, 100, 120000)
     };
     const ssh = dependencies.executeSsh || executeSsh;
-    const httpMeasure = dependencies.measureHttp || measureHttp;
+    security.validateCredentials(credentials.username, credentials.password);
+    const httpMeasure = dependencies.measureHttp || ((url, timeout, capture, encoding) => measureHttp(url, timeout, capture, encoding, credentials));
     const sleep = dependencies.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
     const sampleCount = validateSchedule(profileOptions);
     const samples = [];
     let previous;
     let javascriptUrl = null;
     const initialIndex = await httpMeasure(`${profileOptions.httpBase}/`, profileOptions.timeout, true);
-    if (initialIndex.ok) {
-        javascriptUrl = discoverMainScript(initialIndex.body, profileOptions.httpBase);
+    if (!initialIndex.ok) {
+        throw new Error(`Profiler HTTP preflight failed (${initialIndex.status || initialIndex.error || "request_failed"})`);
+    }
+    javascriptUrl = discoverMainScript(initialIndex.body, profileOptions.httpBase);
+    const apiPreflight = await httpMeasure(`${profileOptions.httpBase}/api/v2/robot/state/attributes`, profileOptions.timeout);
+    if (!apiPreflight.ok) {
+        throw new Error(`Profiler API preflight failed (${apiPreflight.status || apiPreflight.error || "request_failed"})`);
     }
 
     for (let index = 0; index < sampleCount; index++) {
@@ -560,6 +574,7 @@ async function runProfile(options, dependencies = {}) {
             label: profileOptions.label,
             robot: extractRobotState(stateResult.body),
             system,
+            sshOk: sshResult.ok,
             timestamp: new Date().toISOString(),
             videoActive: extractVideoState(videoResult.body)
         });
@@ -569,7 +584,10 @@ async function runProfile(options, dependencies = {}) {
             await sleep(remaining);
         }
     }
-    return {javascriptUrl, samples, summary: summarize(samples)};
+    const summary = summarize(samples);
+    summary.sshFailures = samples.filter(sample => !sample.sshOk).length;
+    summary.valid = summary.sshFailures === 0 && Object.values(summary.http).every(metric => metric.failures === 0);
+    return {javascriptUrl, samples, summary};
 }
 
 function writeResults(options, result) {

@@ -97,7 +97,7 @@ Run the dependency-free profiler on this Mac; it only reads fixed process counte
 npm run profile_vacuum_resources -- --label docked-video-off --duration 600
 ```
 
-Defaults are SSH host `vacuum`, HTTP base `http://192.168.1.31`, a five-second interval, a ten-minute duration, and output below `~/Documents/ValetudoProfiles`. Override them with `--ssh-host`, `--http-base`, `--interval`, `--duration`, `--timeout`, and `--output`. The SSH value must be a host alias or IP address, not an option. The HTTP value must be a credential-free origin with no path, query, or fragment. Duration is limited to 5–86400 seconds, interval to 1–3600 seconds, timeout to 100–120000 milliseconds, and a run to 10000 samples. **Since Valetudo Basic Auth was enabled on 2026-09-24 the profiler cannot authenticate: every HTTP sample returns 401 until it gains a login option.**
+Defaults are SSH host `vacuum`, HTTP base `https://mattjoslin-valetudo.duckdns.org`, a five-second interval, a ten-minute duration, and output below `~/Documents/ValetudoProfiles`. Override them with `--ssh-host`, `--http-base`, `--interval`, `--duration`, `--timeout`, and `--output`. The SSH value must be a host alias or IP address, not an option. The HTTP value must be a credential-free origin with no path, query, or fragment, and must use verified HTTPS; plain HTTP is accepted only for literal loopback (`127.0.0.1` or `[::1]`), meaning an SSH tunnel that terminates on the robot. Duration is limited to 5–86400 seconds, interval to 1–3600 seconds, timeout to 100–120000 milliseconds, and a run to 10000 samples. **Authentication (source 2026-09-28, not yet merged):** the profiler reads Basic Auth from the Mac keychain service `valetudo-basic-auth` (override with `VALETUDO_AUTH_SERVICE`, or supply `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` together). It checks the root document and an authenticated API request before sampling and stops on failure. A run with any HTTP or SSH failure is written but reported `FAILED` with exit code 1 (`summary.valid`). Caddy does not yet allow the Mac, so the direct HTTPS default returns 403; the native `tools/profiles.sh` opens `ssh -L 127.0.0.1:<port>:127.0.0.1:80 vacuum` and passes `--http-base http://127.0.0.1:<port>`. Tunnelled latency includes SSH encryption and dropbear CPU on the robot, so it is not directly comparable with the pre-2026-09-24 direct-LAN baselines; record a fresh baseline before gating on regressions.
 
 Each run receives a unique private mode-`0700` directory containing exclusively created mode-`0600` `samples.csv`, `summary.json`, and `metadata.json`. The summary reports HTTP failures and latency percentiles, process CPU/RSS peaks, load, and minimum available memory. SSH output and HTTP bodies are size-bounded, every operation has an absolute deadline, and the measured JavaScript bundle must be an exact same-origin hashed main asset. The profiler never reads process arguments, environment variables, authorization headers, request queries, bodies, or robot logs.
 
@@ -328,18 +328,19 @@ The two vacuum-light automations and `Valetudo: Notifications` are enabled; the 
 
 ## MCP Server
 
-`mcp-server/` is a local stdio Model Context Protocol server. It exposes 49 Valetudo tools without opening a network listener. The normal topology is to run it on this Mac and connect directly to `192.168.1.31`.
+`mcp-server/` is a local stdio Model Context Protocol server. It exposes 49 Valetudo tools without opening a network listener. It runs on this Mac and accepts only verified HTTPS or literal-loopback HTTP through an SSH tunnel that terminates on the robot; it never follows redirects (source 2026-09-28, not yet merged).
 
 Environment variables:
 
 | Variable | Requirement |
 |---|---|
-| `VALETUDO_HOST` | Required |
-| `VALETUDO_PORT` | Optional; defaults to `80` |
-| `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` | Optional, but must be supplied together |
+| `VALETUDO_URL` | Credential-free origin: `https://mattjoslin-valetudo.duckdns.org`, or `http://127.0.0.1:<port>` for the tunnel |
+| `VALETUDO_HOST`, `VALETUDO_PORT` | Legacy alternative to the URL; HTTPS/443 by default, HTTP/80 only for `127.0.0.1` or `[::1]`. Do not mix with `VALETUDO_URL` |
+| `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` | Optional, but must be supplied together; take precedence over the keychain |
+| `VALETUDO_AUTH_SERVICE` | Keychain service; defaults to `valetudo-basic-auth` on macOS, empty disables the lookup |
 | `VALETUDO_TIMEOUT_MS` | Optional; defaults to `10000`, range 100–120000 ms |
 
-Valetudo Basic Auth is currently enabled, so supply both username and password to MCP through its environment. For remote clients, tunnel through a trusted LAN host with `ssh -N -L 8080:192.168.1.31:80 <lan-host>` and point MCP at `127.0.0.1:8080`. See `mcp-server/README.md` for configuration and tool inventory.
+Until the Mac is added to the Caddy allowlist, run `ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:80 vacuum` and set `VALETUDO_URL=http://127.0.0.1:8080`. Do not tunnel through another LAN host to `192.168.1.31:80`, because that leaves the last hop and the Basic Auth header unencrypted. See `mcp-server/README.md` for configuration and tool inventory.
 
 ## Native VacuumStreamer
 

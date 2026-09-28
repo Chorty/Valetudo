@@ -6,6 +6,7 @@ const {
     runProfile,
     writeResults
 } = require("./vacuum_resource_profiler");
+const {readCredentials} = require("./valetudo_http_security");
 
 function printHelp() {
     process.stdout.write(`Usage: npm run profile_vacuum_resources -- [options]\n\n` +
@@ -28,9 +29,14 @@ async function main() {
     }
 
     process.stdout.write(`Profiling ${options.label} for ${options.duration} seconds. Results stay on this Mac.\n`);
-    const result = await runProfile(options);
+    const credentials = readCredentials({...process.env,
+        VALETUDO_AUTH_SERVICE: process.env.VALETUDO_AUTH_SERVICE ?? (process.platform === "darwin" ? "valetudo-basic-auth" : "")});
+    const result = await runProfile(options, {}, credentials);
     const directory = writeResults(options, result);
-    process.stdout.write(`Profile complete: ${directory}\n`);
+    process.stdout.write(`Profile ${result.summary.valid ? "complete" : "FAILED"}: ${directory}\n`);
+    if (!result.summary.valid) {
+        process.exitCode = 1;
+    }
     const isolated = result.summary.http.rootIsolated;
     const burst = result.summary.http.root;
     process.stdout.write(`Root HTTP failures: ${isolated.failures + burst.failures}\n`);
