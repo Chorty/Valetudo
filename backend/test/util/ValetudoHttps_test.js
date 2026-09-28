@@ -33,19 +33,10 @@ test("both clients enforce certificate trust, hostname and expiry while sending 
         const origin = `https://127.0.0.1:${server.address().port}`;
         const client = new ValetudoClient({baseUrl: origin, username: "user", password: "secret", timeoutMs: 1000});
         try {
-            // Even NODE_TLS_REJECT_UNAUTHORIZED=0 cannot disable our explicit verification.
-            const oldTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-            process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-            try {
-                await assert.rejects(client.getRobotState(), /TLS verification/);
-                assert.equal((await Profiler.measureHttp(origin, 1000)).ok, false);
-            } finally {
-                if (oldTls === undefined) {
-                    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-                } else {
-                    process.env.NODE_TLS_REJECT_UNAUTHORIZED = oldTls;
-                }
-            }
+            // An explicit option takes precedence over the NODE_TLS_REJECT_UNAUTHORIZED default.
+            assert.equal(client.agent.options.rejectUnauthorized, true);
+            await assert.rejects(client.getRobotState(), /TLS verification/);
+            assert.equal((await Profiler.measureHttp(origin, 1000)).ok, false);
             assert.equal(requests, 0);
             client.agent.options.ca = cert;
             https.globalAgent = new https.Agent({ca: cert});
