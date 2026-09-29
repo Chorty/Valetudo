@@ -1,5 +1,7 @@
 # Next-session handoff — 2026-09-26
 
+> **Superseded by the [2026-09-28 handoff](2026-09-28-next-session-handoff.md).** Remaining-work item 1 (credential transport and profiler) is fixed in source by native #15 and parent #24, which are merged but not deployed.
+
 Read `CLAUDE.md` and the latest handoff and work list in `MEMORY.md` for the operating rules and full history. This page is the short starting point. Deployment facts below were last checked on 2026-09-26; verify them again before making a new deployment decision.
 
 ## Published source and deployed state
