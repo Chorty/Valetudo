@@ -62,7 +62,7 @@ Run 2026-09-28 20:54–21:27 EDT with the owner's approval; robot docked and idl
 
 - **First real renewal (about 2026-11-25).** The next morning, confirm that there is no HA notification, that `credentials/https-current` points into `https-generations/`, and that `https-pending` is absent.
 
-- **Profiler baseline.** `tools/profiles.sh <prefix>` now profiles through a robot-terminated SSH tunnel. Its latency includes SSH and dropbear CPU, so record a fresh docked baseline at matched uptime before gating on regressions. Never start a cleaning for a benchmark.
+- **Profiler baseline: done 2026-09-28, 21:55–22:25 EDT.** `tools/profiles.sh certtx0928` ran all three docked scenarios through the tunnel. All were valid with zero failures and isolated p95 of 139.2/126.4/121.4 ms. Native #18 tunnels the RTSP viewer, which `CAMERA_LOGIN=on` had broken since 2026-09-15, and #19 makes these runs the default baselines. See `CLAUDE.md`. Never start a cleaning for a benchmark.
 - **Optional direct HTTPS for the Mac and iPhone.** Reserve their addresses on the router. On the iPhone, set Private Wi-Fi Address to Fixed. Then add the addresses to `remote_ip` in `https_proxy.Caddyfile` and deploy natively. The Let's Encrypt certificate is already trusted, so nothing is installed on the devices. This works on the LAN only.
 
 ## Still open from earlier
