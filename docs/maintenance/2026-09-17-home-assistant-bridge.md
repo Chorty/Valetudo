@@ -35,6 +35,8 @@ The active YAML and vacuum-related dashboard/custom-integration audit found no r
 
 **Post-merge verification, 2026-09-26:** native PR #13 merged and PR #12 closed as redundant. The robot's 16 deployed native runtime files match the merged source byte for byte; the installed and running Valetudo and Caddy binaries match their pinned hashes. No robot redeploy was needed. The owner waived a supervised preset-3 cleaning as a rollout gate; its vacuum-then-mop sequence remains unverified.
 
+**Certificate-install transaction, 2026-09-28 (merged, not deployed):** native #15 replaces the `cert`/`key`/`activate` calls with one verified `install` transaction and adds a 30-minute served-certificate monitor. HA's `/config/valetudo_https_cert_sync.sh`, the new `.py` helper, the `valetudo_https_cert_check` shell command and the monitor automation must be deployed together with the robot scripts. See the [2026-09-28 handoff](2026-09-28-next-session-handoff.md).
+
 **Documentation follow-up, 2026-09-26:** native PR #14 corrected the published HTTPS, camera-login, and install instructions; plugin PR #7 documented the mic and recorder controls. Parent docs PR #22 merged as `aa881436` and advanced the plugin pointer to `b02e72e`. These changes do not require a robot binary rebuild. The [next-session handoff](2026-09-26-next-session-handoff.md) records the remaining checks.
 
 ## Verification
