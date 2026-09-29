@@ -4,7 +4,7 @@ This supersedes the [2026-09-26 handoff](2026-09-26-next-session-handoff.md). Re
 
 ## What changed on 2026-09-28
 
-A read-only review of the HTTPS and authentication paths (Codex thread `01a0e0b0-3272-7290-8551-d3c45198059d`) found five problems. Codex implemented fixes for all of them. The session hit its limit during wrap-up, and Claude Code session `d3102980-8c62-48cd-9190-135d9078e749` finished the changes and merged them. **Nothing has been deployed.** The robot and Home Assistant still run the 2026-09-26 state.
+A read-only review of the HTTPS and authentication paths (Codex thread `01a0e0b0-3272-7290-8551-d3c45198059d`) found five problems. Codex implemented fixes for all of them. The session hit its limit during wrap-up, and Claude Code session `d3102980-8c62-48cd-9190-135d9078e749` finished the changes and merged them. **The same evening they were deployed as `certtx0928`**; see [Deploy result](#deploy-result).
 
 | Finding | Fix | Merged |
 |---|---|---|
@@ -23,12 +23,12 @@ Tests at merge: backend 246/246, MCP 13/13, native 293/293 in dash plus 11 insta
 | Component | Default branch | Running |
 |---|---|---|
 | Valetudo parent | `master` `3ef26086` (PR #24) | `261bf1ff`. Every change since is Mac-side (MCP, profiler) or docs, so no rebuild is needed |
-| Native companion | `master` `dde1fb6` (PR #15) | Runtime `b6fb8bb`. The certificate scripts in #15 **need deployment** |
+| Native companion | `master` `dde1fb6` (PR #15) | Runtime `dde1fb6`, deployed 2026-09-28 (`certtx0928`) |
 | Plugin | `main` `b02e72e` | Unchanged |
 
 No MCP client on this Mac is configured with the old `VALETUDO_HOST=192.168.1.31`, which the new MCP code rejects (checked in `~/.claude.json` and `~/.codex/config.toml`).
 
-## Deploy plan (not yet approved)
+## Deploy plan (executed 2026-09-28)
 
 This is a native-only deploy. Robot and Home Assistant must be updated in the same session. The robot now accepts only `install`, and the current HA script sends `cert`/`key`/`activate`. A mismatch is safe: the 03:00 job fails with its notification and the served certificate (valid to 2026-12-25) stays. Let's Encrypt renews about 30 days before expiry, so deploy before about **2026-11-20**.
 
@@ -47,7 +47,20 @@ Choose a window clear of HA's 02:00 and 03:00 certificate jobs and the Dreame ma
 
 **Only the real renewal can test this path.** Step 6 exercises the unchanged-pair path. The first changed pair, and with it the one-time conversion of the PEM files into `https-generations/` symlinks, runs only at the real renewal. It is covered by local tests, automatic rollback, the 03:00 failure notification, and the 30-minute monitor. Check the robot and HA the morning after the renewal.
 
+## Deploy result
+
+Run 2026-09-28 20:54–21:27 EDT with the owner's approval; robot docked and idle throughout.
+
+- Backup `~/Documents/ValetudoBackups/valetudo_261bf1ff_20260928_certtx`: sealed with 814 files verified and 0 mismatches. `DEPLOY_RECORD.txt` has the hashes and the rollback steps.
+- Before the deploy, all 16 robot runtime files matched `b6fb8bb`. `deploy_native.sh dde1fb6` changed only the three certificate scripts. The reboot gate passed 12/12 with runtime `261bf1ff` and `HTTPS_PROXY=on`.
+- After the reboot, Caddy served the installed leaf (valid to 2026-12-25) with no `https-pending`. Robot-local requests without a login got 401; the Mac got 403.
+- HA: files installed with repo-matching hashes; config check `valid`; Core restarted. The monitor automation was added through the config API; HA was reached over the SSH app and the Supervisor proxy, so no token crossed the LAN.
+- The check command returned 0. The install command returned 0 on the unchanged-pair path with the same Caddy PID, no journal and an empty `https-generations/`. The monitor ran and created no notification. HA entities matched the pre-deploy baseline.
+- After the Core restart, the Supervisor's API proxy returned 502 for a few minutes while the web UI already answered 200. It recovered on its own.
+
 ## After deploying
+
+- **First real renewal (about 2026-11-25).** The next morning, confirm that there is no HA notification, that `credentials/https-current` points into `https-generations/`, and that `https-pending` is absent.
 
 - **Profiler baseline.** `tools/profiles.sh <prefix>` now profiles through a robot-terminated SSH tunnel. Its latency includes SSH and dropbear CPU, so record a fresh docked baseline at matched uptime before gating on regressions. Never start a cleaning for a benchmark.
 - **Optional direct HTTPS for the Mac and iPhone.** Reserve their addresses on the router. On the iPhone, set Private Wi-Fi Address to Fixed. Then add the addresses to `remote_ip` in `https_proxy.Caddyfile` and deploy natively. The Let's Encrypt certificate is already trusted, so nothing is installed on the devices. This works on the LAN only.
