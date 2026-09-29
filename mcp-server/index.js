@@ -7,7 +7,7 @@
  * as MCP tools. Plugins are loaded dynamically from the plugins/ directory.
  *
  * Usage:
- *   VALETUDO_HOST=192.168.1.31 node index.js
+ *   VALETUDO_URL=https://mattjoslin-valetudo.duckdns.org node index.js
  *
  * Or configure in your MCP client (e.g. Claude Desktop, VS Code):
  *   {
@@ -15,7 +15,7 @@
  *       "valetudo": {
  *         "command": "node",
  *         "args": ["/path/to/mcp-server/index.js"],
- *         "env": { "VALETUDO_HOST": "192.168.1.31" }
+ *         "env": { "VALETUDO_URL": "https://mattjoslin-valetudo.duckdns.org" }
  *       }
  *     }
  *   }
@@ -29,7 +29,8 @@ import { ValetudoClient } from "./lib/valetudo-client.js";
 
 let config;
 try {
-    config = readConfig();
+    config = readConfig({...process.env,
+        VALETUDO_AUTH_SERVICE: process.env.VALETUDO_AUTH_SERVICE ?? (process.platform === "darwin" ? "valetudo-basic-auth" : "")});
 } catch (error) {
     process.stderr.write(`[valetudo-mcp] Configuration error: ${error.message}\n`);
     process.exit(1);
@@ -42,8 +43,7 @@ const server = new McpServer({
 });
 
 const client = new ValetudoClient({
-    host: config.host,
-    port: config.port,
+    baseUrl: config.baseUrl,
     timeoutMs: config.timeoutMs,
     username: config.username,
     password: config.password,
@@ -53,7 +53,7 @@ const client = new ValetudoClient({
 const plugins = await loadPlugins(server, client);
 
 process.stderr.write(`[valetudo-mcp] Loaded ${plugins.length} plugin(s): ${plugins.map(p => p.name).join(", ")}\n`);
-process.stderr.write(`[valetudo-mcp] Valetudo target: http://${config.host}:${config.port}\n`);
+process.stderr.write(`[valetudo-mcp] Valetudo target: ${config.baseUrl}\n`);
 
 // Connect via stdio transport
 const transport = new StdioServerTransport();

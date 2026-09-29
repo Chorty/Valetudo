@@ -1,4 +1,4 @@
-const DEFAULT_PORT = 80;
+import security from "../../util/valetudo_http_security.js";
 const DEFAULT_TIMEOUT_MS = 10000;
 const MIN_TIMEOUT_MS = 100;
 const MAX_TIMEOUT_MS = 120000;
@@ -16,19 +16,22 @@ function parseInteger(value, name, defaultValue, minimum, maximum) {
 
 export function readConfig(env = process.env) {
     const host = env.VALETUDO_HOST?.trim();
-    const username = env.VALETUDO_USERNAME?.trim() || undefined;
-    const password = env.VALETUDO_PASSWORD || undefined;
-
-    if (!host) {
-        throw new Error("VALETUDO_HOST is required");
+    if (!env.VALETUDO_URL && !host) {
+        throw new Error("VALETUDO_URL or VALETUDO_HOST is required");
     }
-    if ((username && !password) || (!username && password)) {
-        throw new Error("VALETUDO_USERNAME and VALETUDO_PASSWORD must be supplied together");
+    if (env.VALETUDO_URL && (host || env.VALETUDO_PORT)) {
+        throw new Error("Use VALETUDO_URL or VALETUDO_HOST/PORT, not both");
     }
+    if (host && !/^(?:[a-zA-Z0-9.-]+|\[::1\])$/.test(host)) {
+        throw new Error("VALETUDO_HOST must contain only a hostname or IP address");
+    }
+    const protocol = ["127.0.0.1", "[::1]"].includes(host) ? "http" : "https";
+    const port = parseInteger(env.VALETUDO_PORT, "VALETUDO_PORT", protocol === "https" ? 443 : 80, 1, 65535);
+    const baseUrl = security.validateOrigin(env.VALETUDO_URL || `${protocol}://${host}:${port}`);
+    const credentials = security.readCredentials(env);
 
     return {
-        host: host,
-        port: parseInteger(env.VALETUDO_PORT, "VALETUDO_PORT", DEFAULT_PORT, 1, 65535),
+        baseUrl: baseUrl,
         timeoutMs: parseInteger(
             env.VALETUDO_TIMEOUT_MS,
             "VALETUDO_TIMEOUT_MS",
@@ -36,7 +39,6 @@ export function readConfig(env = process.env) {
             MIN_TIMEOUT_MS,
             MAX_TIMEOUT_MS
         ),
-        username: username,
-        password: password,
+        ...credentials,
     };
 }

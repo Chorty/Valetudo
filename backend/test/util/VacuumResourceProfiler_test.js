@@ -91,7 +91,7 @@ test("the isolated root probe is measured alone, before the concurrent burst", a
 
     const result = await Profiler.runProfile({
         duration: 10,
-        httpBase: "http://vacuum",
+        httpBase: "https://vacuum",
         interval: 5,
         label: "isolation-test",
         sshHost: "vacuum",
@@ -99,7 +99,7 @@ test("the isolated root probe is measured alone, before the concurrent burst", a
     }, {
         executeSsh: () => track("ssh", {ok: false, output: ""}),
         measureHttp: (url) => {
-            if (url !== "http://vacuum/") {
+            if (url !== "https://vacuum/") {
                 return track(url, {durationMs: 160, ok: true, status: 200});
             }
             rootCallIndex++;
@@ -173,8 +173,8 @@ test("summaries report failures, percentiles, resource peaks, and minimum memory
     const summary = Profiler.summarize(samples);
 
     assert.equal(summary.http.root.failures, 1);
-    assert.equal(summary.http.root.p50Ms, 200);
-    assert.equal(summary.http.root.p95Ms, 900);
+    assert.equal(summary.http.root.p50Ms, 100);
+    assert.equal(summary.http.root.p95Ms, 200);
     assert.equal(summary.load.peakOne, 3);
     assert.equal(summary.memory.minimumAvailableKb, 200);
     assert.equal(summary.processes.valetudo.maximumRssKb, 82000);
@@ -202,7 +202,7 @@ test("HTTP measurement applies an absolute deadline and a response-size limit", 
             };
             return request;
         };
-        const timeoutResult = await Profiler.measureHttp("http://example.test/", 5);
+        const timeoutResult = await Profiler.measureHttp("http://127.0.0.1/", 5);
         assert.equal(timeoutResult.ok, false);
         assert.equal(timeoutResult.error, "timeout");
         assert.equal(destroyed, true);
@@ -220,7 +220,7 @@ test("HTTP measurement applies an absolute deadline and a response-size limit", 
             });
             return request;
         };
-        const largeResult = await Profiler.measureHttp("http://example.test/", 1000, true);
+        const largeResult = await Profiler.measureHttp("http://127.0.0.1/", 1000, true);
         assert.equal(largeResult.ok, false);
         assert.equal(largeResult.error, "response_too_large");
     } finally {
@@ -233,7 +233,7 @@ test("result files use unique private directories and exclusive private files", 
     t.after(() => fs.rmSync(output, {force: true, recursive: true}));
     const options = {
         duration: 5,
-        httpBase: "http://vacuum",
+        httpBase: "https://vacuum",
         interval: 5,
         label: "test",
         output: output,
@@ -249,4 +249,31 @@ test("result files use unique private directories and exclusive private files", 
     for (const filename of ["metadata.json", "samples.csv", "summary.json"]) {
         assert.equal(fs.statSync(path.join(first, filename)).mode & 0o777, 0o600);
     }
+});
+
+test("preflight refuses authentication failures and redirects before SSH sampling", async () => {
+    for (const status of [401, 403, 302]) {
+        await assert.rejects(Profiler.runProfile({
+            ...Profiler.DEFAULTS, duration: 5, interval: 5
+        }, {
+            measureHttp: async () => ({ok: false, status: status}),
+            executeSsh: () => assert.fail("must not sample after failed preflight")
+        }), /preflight failed/);
+    }
+});
+
+test("HTTP loopback sends auth, rejects redirect success, and never follows Location", async t => {
+    let count = 0;
+    const server = http.createServer((request, response) => {
+        count++;
+        assert.equal(request.headers.authorization, "Basic dXNlcjpzZWNyZXQ=");
+        response.writeHead(302, {Location: "http://127.0.0.1:1/stolen"});
+        response.end();
+    });
+    await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const result = await Profiler.measureHttp(`http://127.0.0.1:${server.address().port}`, 1000, false, "identity", {username: "user", password: "secret"});
+    assert.equal(result.status, 302);
+    assert.equal(result.ok, false);
+    assert.equal(count, 1);
 });

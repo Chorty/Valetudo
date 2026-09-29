@@ -4,88 +4,68 @@ Model Context Protocol server that exposes your Valetudo vacuum's capabilities a
 
 ## Quick Start
 
-This robot has Valetudo Basic Auth enabled. Set both `VALETUDO_USERNAME` and
-`VALETUDO_PASSWORD` in the MCP process's private environment before starting
-it; the command below assumes they are already set. MCP does not read the Mac
-keychain entry used by the deployment tools.
+The client requires verified HTTPS. Explicit literal loopback HTTP is also
+accepted for an SSH tunnel that terminates **on the robot**. It never follows
+redirects or falls back from HTTPS to HTTP.
+
+The deployed Caddy allowlist currently permits HA and robot localhost. Until a
+separately approved direct-Mac HTTPS rollout, use this encrypted route:
 
 ```bash
-cd mcp-server
-npm install
-VALETUDO_HOST=192.168.1.31 node index.js
+ssh -N -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8080:127.0.0.1:80 vacuum
 ```
 
-The server uses MCP's stdio transport. It does not open a network listener. On
-this installation, the normal topology is to run it on the Mac hosting the MCP
-client and connect directly to the vacuum over the private LAN. Valetudo's
-`blockExternalAccess=true` setting still permits private-LAN and localhost
-clients; it blocks public/external source addresses.
+In another terminal:
 
-## Configure in Claude Desktop
+```bash
+VALETUDO_URL=http://127.0.0.1:8080 node mcp-server/index.js
+```
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+On macOS, the process reads service `valetudo-basic-auth` from Keychain by
+default. The account supplies the username; the password never enters command
+arguments. Alternatively supply both `VALETUDO_USERNAME` and `VALETUDO_PASSWORD`
+through the launcher's private environment. Do not put secrets in MCP JSON,
+shell command text, URLs, logs, or tracked files. A partial pair is an error.
+Set `VALETUDO_AUTH_SERVICE` to select another service; an explicitly empty value
+disables Keychain lookup for installations without authentication.
+
+For direct TLS once the Mac is allowed, use
+`VALETUDO_URL=https://mattjoslin-valetudo.duckdns.org`. An IP URL cannot verify a
+certificate issued only for the DNS name. Never disable certificate checking.
+
+## MCP client configuration
+
+The stdio server does not open a network listener. With the above tunnel running,
+configure Claude Desktop (`mcpServers`) or VS Code (`servers`) with this entry:
 
 ```json
 {
-  "mcpServers": {
-    "valetudo": {
-      "command": "node",
-      "args": ["/absolute/path/to/mcp-server/index.js"],
-      "env": {
-        "VALETUDO_HOST": "192.168.1.31",
-        "VALETUDO_PORT": "80",
-        "VALETUDO_TIMEOUT_MS": "10000"
-      }
+  "valetudo": {
+    "command": "node",
+    "args": ["/absolute/path/to/Valetudo/mcp-server/index.js"],
+    "env": {
+      "VALETUDO_URL": "http://127.0.0.1:8080",
+      "VALETUDO_AUTH_SERVICE": "valetudo-basic-auth"
     }
   }
 }
 ```
 
-## Configure in VS Code
+## Environment variables
 
-Add to `.vscode/mcp.json` in your workspace:
+| Variable | Meaning |
+|---|---|
+| `VALETUDO_URL` | Credential-free origin: verified HTTPS or literal-loopback HTTP |
+| `VALETUDO_HOST`, `VALETUDO_PORT` | Legacy alternative to URL; HTTPS/443 by default, HTTP/80 only for `127.0.0.1` or `[::1]` |
+| `VALETUDO_USERNAME`, `VALETUDO_PASSWORD` | Optional complete credential pair; takes precedence over Keychain |
+| `VALETUDO_AUTH_SERVICE` | Keychain service; defaults to `valetudo-basic-auth` on macOS |
+| `VALETUDO_TIMEOUT_MS` | 100–120000 ms; default 10000 |
 
-```json
-{
-  "servers": {
-    "valetudo": {
-      "command": "node",
-      "args": ["${workspaceFolder}/mcp-server/index.js"],
-      "env": {
-        "VALETUDO_HOST": "192.168.1.31"
-      }
-    }
-  }
-}
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `VALETUDO_HOST` | *(required)* | Vacuum IP address or hostname |
-| `VALETUDO_PORT` | `80` | Valetudo webserver port |
-| `VALETUDO_USERNAME` | *(unset)* | Basic Auth username; must be paired with `VALETUDO_PASSWORD` |
-| `VALETUDO_PASSWORD` | *(unset)* | Basic Auth password; must be paired with `VALETUDO_USERNAME` |
-| `VALETUDO_TIMEOUT_MS` | `10000` | Per-request timeout, from 100 through 120000 milliseconds |
-
-On this deployment, set both `VALETUDO_USERNAME` and `VALETUDO_PASSWORD` in the
-MCP client's private environment. Leave both unset only on installations that
-have Basic Auth disabled. Keep the password out of committed configuration and
-command-line URLs. The Mac-to-robot connection still uses HTTP on the LAN.
-
-## Optional SSH Tunnel
-
-For an MCP client that cannot reach the vacuum's private LAN directly, create a
-local tunnel through a trusted LAN host:
-
-```bash
-ssh -N -L 8080:192.168.1.31:80 <lan-host>
-```
-
-Then configure the MCP process with `VALETUDO_HOST=127.0.0.1` and
-`VALETUDO_PORT=8080`. The MCP server remains a local stdio process; do not expose
-it as a network service.
+Do not mix URL and host/port settings. Older LAN HTTP configurations need to move
+to the tunnel or verified DNS-name HTTPS. A tunnel through another LAN host to
+`192.168.1.31:80` leaves its final LAN hop unencrypted; use the robot as the SSH
+endpoint and forward to its loopback instead.
 
 ## Included Plugins
 

@@ -60,7 +60,7 @@ test("returns useful non-success errors without exposing credentials", async () 
             password: "top-secret-value",
         });
         await assert.rejects(client.getRobotState(), error => {
-            assert.match(error.message, /503 Unavailable.*try later/);
+            assert.match(error.message, /HTTP 503/);
             assert.doesNotMatch(error.message, /top-secret-value/);
             return true;
         });
@@ -116,4 +116,26 @@ test("accepts a response body right up to the configured cap", async () => {
         const result = await client.getRobotState();
         assert.equal(result.padding.length, 1000);
     });
+});
+
+test("rejects plaintext LAN origins and URL credentials at the client boundary", () => {
+    for (const baseUrl of ["http://192.168.1.31", "http://localhost:80", "https://user:secret@vacuum"]) {
+        assert.throws(() => new ValetudoClient({baseUrl, username: "user", password: "secret"}));
+    }
+});
+
+test("does not follow redirects or reflect credentials from error responses", async () => {
+    let calls = 0;
+    await withServer((request, response) => {
+        calls++;
+        response.statusCode = 302;
+        response.setHeader("Location", "/stolen");
+        response.end(request.headers.authorization);
+    }, async port => {
+        const client = new ValetudoClient({host: "127.0.0.1", port, username: "user", password: "secret"});
+        await assert.rejects(client.getRobotState(), error => error.message === "Valetudo API error: HTTP 302");
+        await assert.rejects(client.request("//evil.test/"), /Invalid/);
+        await assert.rejects(client.request("/\\evil.test/"), /Invalid/);
+    });
+    assert.equal(calls, 1);
 });
