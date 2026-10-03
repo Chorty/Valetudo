@@ -1,5 +1,5 @@
-import {Capability, MapManagementCommand, MapManagementMapEntry} from "./types";
-import {valetudoAPI} from "./client";
+import {Capability, MapManagementCommand, MapManagementMapEntry, VideoStreamCommand, VideoStreamStatus} from "./types";
+import {valetudoAPI, valetudoAPIBaseURL} from "./client";
 
 export const fetchMapManagementList = async (): Promise<MapManagementMapEntry[]> => {
     return valetudoAPI
@@ -34,4 +34,26 @@ export const importMapManagementMap = async (params: {file: File, name: string})
         params.file,
         {headers: {"Content-Type": "application/octet-stream"}}
     );
+};
+
+export const fetchVideoStreamStatus = async (): Promise<VideoStreamStatus> => {
+    return valetudoAPI
+        .get<VideoStreamStatus>(`/robot/capabilities/${Capability.VideoStream}`)
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendVideoStreamCommand = async (command: VideoStreamCommand): Promise<void> => {
+    await valetudoAPI.put(`/robot/capabilities/${Capability.VideoStream}`, command);
+};
+
+/**
+ * Live video relayed by Valetudo from go2rtc, so the browser only needs Valetudo's login.
+ * The browser's cached Basic Auth credentials apply to this same-origin media request.
+ *
+ * @param {"hls" | "mp4"} format "hls" for browsers with native HLS (Safari, iOS), "mp4" for the rest
+ */
+export const videoStreamPlaybackURL = (format: "hls" | "mp4"): string => {
+    return `${valetudoAPIBaseURL}/robot/capabilities/${Capability.VideoStream}/${format === "hls" ? "live.m3u8" : "live.mp4"}`;
 };
