@@ -67,8 +67,8 @@ Run 2026-09-28 20:54–21:27 EDT with the owner's approval; robot docked and idl
 
 ## Still open from earlier
 
-- **Preset 3:** the vacuum-then-mop sequence is unverified; the owner waived the test. Observe only a cleaning the owner starts.
-- **HA camera card:** the play/pause check with the owner.
+- **Preset 3: verified 2026-10-03.** In a user-started cleaning of area 1 the robot vacuumed, the dock washed the mop mid-job, it mopped for about 24 minutes, and the area was damp afterwards. See `CLAUDE.md`.
+- **HA camera card: verified 2026-10-03.** Play connected a viewer on the robot, pause disconnected it, and capture stopped after the 180 s idle timeout. See `CLAUDE.md`.
 - **Routine:** preserve the robot watchdog override `VALETUDO_SLOW_REQUEST_MS=500`, and check disk space before builds.
 - **Security scan:** a canonical Standard or Deep Scan is still needed.
 - **Lower priority:** `MEMORY.md` work-list items 7–12.
