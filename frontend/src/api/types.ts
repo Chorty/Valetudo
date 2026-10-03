@@ -51,6 +51,7 @@ export enum Capability {
     Quirks = "QuirksCapability",
     ObstacleImages = "ObstacleImagesCapability",
     MapManagement = "MapManagementCapability",
+    VideoStream = "VideoStreamCapability",
     MapAnnotations = "MapAnnotationsCapability",
     Duststreaming = "DuststreamingCapability",
 }
@@ -703,6 +704,19 @@ export interface AutoEmptyDockAutoEmptyDurationPayload {
 
 export interface AutoEmptyDockAutoEmptyDurationControlProperties {
     supportedDurations: Array<AutoEmptyDockAutoEmptyDuration>,
+}
+
+export interface VideoStreamStatus {
+    active: boolean;
+    capturing?: boolean;
+    paused?: boolean;
+    mode?: string;
+    pid?: number | null;
+    go2rtcPid?: number | null;
+}
+
+export interface VideoStreamCommand {
+    action: "start" | "stop";
 }
 
 export interface MapManagementMapEntry {

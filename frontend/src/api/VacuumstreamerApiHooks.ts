@@ -2,12 +2,14 @@
 import React from "react";
 import {useSnackbar} from "notistack";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
-import {Capability, MapManagementCommand, MapManagementMapEntry} from "./types";
+import {Capability, MapManagementCommand, MapManagementMapEntry, VideoStreamCommand} from "./types";
 import {
     exportMapManagementMap,
     fetchMapManagementList,
+    fetchVideoStreamStatus,
     importMapManagementMap,
     sendMapManagementCommand,
+    sendVideoStreamCommand,
 } from "./VacuumstreamerApiClient";
 
 const MAP_MANAGEMENT_QUERY_KEY = "map_management_capability";
@@ -74,5 +76,35 @@ export const useMapManagementImportMutation = () => {
             });
         },
         onError: onError,
+    });
+};
+
+const VIDEO_STREAM_QUERY_KEY = "video_stream_capability";
+
+export const useVideoStreamStatusQuery = () => {
+    return useQuery({
+        queryKey: [VIDEO_STREAM_QUERY_KEY],
+        queryFn: fetchVideoStreamStatus,
+        refetchInterval: 5_000,
+    });
+};
+
+export const useVideoStreamCommandMutation = () => {
+    const queryClient = useQueryClient();
+    const {enqueueSnackbar} = useSnackbar();
+    return useMutation({
+        mutationFn: (command: VideoStreamCommand) => {
+            return sendVideoStreamCommand(command);
+        },
+        onError: (error: any) => {
+            const message = typeof error?.response?.data?.message === "string" ? error.response.data.message : String(error);
+            enqueueSnackbar(`An error occurred while sending command to ${Capability.VideoStream}:\n${message}`, {
+                preventDuplicate: true,
+                variant: "error",
+            });
+        },
+        onSettled: () => {
+            return queryClient.invalidateQueries({queryKey: [VIDEO_STREAM_QUERY_KEY]});
+        },
     });
 };

@@ -65,16 +65,20 @@ test("query values from originalUrl are never used", () => {
     assert.equal(JSON.stringify(logger.warnCalls).includes("secret"), false);
 });
 
-test("fast, SSE, and log-content responses are excluded", () => {
+test("fast, SSE, log-content and long-lived stream responses are excluded", () => {
     let now = 0n;
     const logger = createLogger();
     const middleware = SlowRequestMiddleware({logger: logger, now: () => now, rawThreshold: 100});
     for (const scenario of [
         {duration: 50n, headers: {}, path: "/fast"},
         {duration: 200n, headers: {"Content-Type": "text/event-stream"}, path: "/events"},
-        {duration: 200n, headers: {}, path: "/api/v2/valetudo/log/content/sse"}
+        {duration: 200n, headers: {}, path: "/api/v2/valetudo/log/content/sse"},
+        {duration: 200n, headers: {"Content-Type": "video/mp4"}, path: "/live.mp4", longLivedStream: true}
     ]) {
         const response = createResponse(scenario.headers);
+        if (scenario.longLivedStream) {
+            response.locals = {longLivedStream: true};
+        }
         middleware({method: "GET", path: scenario.path}, response, () => undefined);
         now += scenario.duration * 1000000n;
         response.writableFinished = true;

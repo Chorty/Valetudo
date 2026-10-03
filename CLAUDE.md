@@ -292,6 +292,7 @@ All paths are below `/api/v2/robot/capabilities`.
 - `GET /VideoStreamCapability` — status: `active` when the stream can be watched, plus `capturing`, `paused`, `mode` and process IDs
 - `GET /VideoStreamCapability/urls` — RTSP, WebRTC, HLS, and go2rtc URLs
 - `PUT /VideoStreamCapability` with `{"action":"start"}` or `{"action":"stop"}`; `stop` pauses the camera until `start` or a reboot, and a refused `start` returns the native script's reason
+- `GET /VideoStreamCapability/live.mp4` (fragmented MP4) and `GET /VideoStreamCapability/live.m3u8` plus `hls/*` (fMP4 HLS for Safari and iOS) relay go2rtc's video through Valetudo's own login (plugin PR #8). go2rtc does not challenge robot-local clients, so browsers never need the camera credentials. Video only, so the microphone backchannel never starts. At most 2 live MP4 viewers. The upstream pull closes when the viewer leaves. Each viewer's 0.6–2 Mbps passes through Valetudo's Node process. The parent's **Camera** page (`/robot/video_stream_capability`) plays these, chooses HLS where the browser supports it natively, and stops when the tab is hidden
 
 ### Text to speech
 

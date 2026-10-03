@@ -1,4 +1,4 @@
-import {Layers as FloorManagementIcon} from "@mui/icons-material";
+import {Layers as FloorManagementIcon, Videocam as CameraIcon} from "@mui/icons-material";
 import {Capability} from "../api";
 
 export const vacuumstreamerMenuItems = [
@@ -10,6 +10,17 @@ export const vacuumstreamerMenuItems = [
         menuText: "Floor Management",
         requiredCapabilities: {
             capabilities: [Capability.MapManagement],
+            type: "allof" as const,
+        },
+    },
+    {
+        kind: "MenuEntry" as const,
+        route: "/robot/video_stream_capability",
+        title: "Camera",
+        menuIcon: CameraIcon,
+        menuText: "Camera",
+        requiredCapabilities: {
+            capabilities: [Capability.VideoStream],
             type: "allof" as const,
         },
     },

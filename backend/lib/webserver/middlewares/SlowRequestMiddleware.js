@@ -48,7 +48,8 @@ module.exports = function(options = {}) {
             const durationMs = Number(now() - started) / 1e6;
             const contentType = String(res.getHeader?.("Content-Type") || "").toLowerCase();
             const requestPath = safePath(req.path);
-            if (durationMs < threshold.value || contentType.startsWith("text/event-stream") || isLogContentPath(requestPath)) {
+            // A route sets res.locals.longLivedStream for responses meant to stay open (live video).
+            if (durationMs < threshold.value || contentType.startsWith("text/event-stream") || res.locals?.longLivedStream === true || isLogContentPath(requestPath)) {
                 return;
             }
 
