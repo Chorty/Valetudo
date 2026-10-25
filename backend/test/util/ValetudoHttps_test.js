@@ -21,6 +21,10 @@ test("both clients enforce certificate trust, hostname and expiry while sending 
         fs.writeFileSync(extensions, `subjectAltName=${san}\n`);
         execFileSync("openssl", ["x509", "-req", "-in", csr, "-signkey", key, "-days", days, "-extfile", extensions, "-out", certificate], {stdio: "ignore"});
         const cert = fs.readFileSync(certificate);
+        if (name === "expired") {
+            // -days 0 sets notAfter to the creation second, so it is still valid until that second passes.
+            await new Promise(resolve => setTimeout(resolve, 1100));
+        }
         let requests = 0;
         const server = https.createServer({key: fs.readFileSync(key), cert: cert}, (request, response) => {
             requests++;
