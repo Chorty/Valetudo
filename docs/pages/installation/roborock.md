@@ -31,8 +31,8 @@ See [https://github.com/dgiese/dustcloud/wiki/Xiaomi-Vacuum-Robots-Factory-Reset
 
 ### Building the Firmware Image
 
-To build the firmware, head over to the [Dustbuilder](https://builder.dontvacuum.me/) and request a rooted firmware image for your specific robot.
-Make sure to select the `Build update package (for installation via local OTA)` option.
+To build the firmware, head over to the [Dustfab](https://fab.valetudo.cloud/) and request a rooted firmware image for your specific robot.
+Make sure to select the `OTA update` output format option.
 
 ### Flashing the firmware image
 
@@ -79,6 +79,14 @@ You can now return to the [getting started guide](/pages/general/getting-started
 * Are you sure that you're running an OTA-rootable firmware? If not, try doing a full factory reset
 * Distance between WiFi devices is to big. Try putting the robo near your PC.
 * Battery is lower than 20%. Please Charge. Place the Vacuum in the dock.
+
+#### Updating
+
+After you've installed your first rooted firmware image on the robot, subsequent firmware updates (if any) do no longer work via the OTA interface.
+Instead, the Installer package format will be used.
+
+Once you have it, throw the tar into `/mnt/data` on the robot, untar and run `install_a.sh/install_b.sh`.
+The script will complain if it is not the right one for the currently booted partition, so just start with `_a`.
 
 </div>
 <div class="section-box">
@@ -171,13 +179,13 @@ For this root you will need:
 {% endalert %}
 
 
-First, head over to the [Dustbuilder](https://builder.dontvacuum.me/) and request a rooted firmware image for your specific robot.
+First, head over to the [Dustfab](https://fab.valetudo.cloud/) and request a rooted firmware image for your specific robot.
 Make sure to select the `Create FEL image (for initial rooting via USB)` option.
 
 Next, download the latest [valetudo-armv7-lowmem.upx binary](https://github.com/Hypfer/Valetudo/releases/latest/download/valetudo-armv7-lowmem.upx).
 
 
-With the dustbuilder now building your image, you can start the disassembly of the robot until you reach the mainboard.
+With the Dustfab now building your image, you can start the disassembly of the robot until you reach the mainboard.
 If you need help on how to do that, there fortunately are a few videos on YouTube.
 Just search for e.g., "s5 max disassembly".
 
@@ -193,7 +201,7 @@ It's enough to disconnect the ones at the front to be able to lift it in a posit
 
 <img src="../img/s5e_mainboard_fel_root.jpg" alt="S5e Mainboard FEL root" width="1280" height="959">
 
-By the time you've reached the mainboard, you should've already received a link to download your rooted firmware package from the dustbuilder.
+By the time you've reached the mainboard, you should've already received a link to download your rooted firmware package from the Dustfab.
 
 Click on the link and download both the zip and the tar.gz. Those should look similar to this:
 ```

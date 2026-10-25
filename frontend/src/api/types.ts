@@ -303,16 +303,6 @@ export interface MQTTConfiguration {
     customizations: {
         topicPrefix: string;
     };
-    interfaces: {
-        homie: {
-            enabled: boolean;
-            cleanAttributesOnShutdown: boolean;
-        };
-        homeassistant: {
-            enabled: boolean;
-            cleanAutoconfOnShutdown: boolean;
-        };
-    };
     optionalExposedCapabilities: Array<string>;
 }
 
@@ -686,7 +676,7 @@ export interface CleanRouteControlProperties {
     oneTime: Array<CleanRoute>,
 }
 
-export type MopDockMopDryingDuration = "2h" | "3h" | "4h" | "cold";
+export type MopDockMopDryingDuration = "2h" | "3h" | "4h" | "5h" | "quiet" | "cold";
 
 export interface MopDockMopDryingTimePayload {
     duration: MopDockMopDryingDuration
