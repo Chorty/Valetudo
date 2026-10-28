@@ -172,10 +172,12 @@ just the closure log so the work list below stays focused on current status.
 11. **Drafted 2026-10-03; do not open PRs.** Upstream's PR template says the maintainer takes no pull requests and bans anyone who opens one. [Report drafts](docs/maintenance/2026-10-03-upstream-report-drafts.md) recommend two bug reports (the forced-GC loop, after confirming on an official release; and miIO secrets in the log) and dropping the build-commit-id and env-redaction fixes. Local reference branches: `upstream/forced-gc-reclaimable`, `upstream/miio-secret-logging`, `upstream/build-commit-id`, `upstream/runtime-env-redaction`. The owner submits any report personally.
 12. **Closed 2026-10-03: skipped (owner's decision).** No Duststreaming experiment. Its driver can hard-lock the kernel and VacuumStreamer's camera already works; keep Duststreaming off. See CLAUDE.md's "Duststreaming (upstream, unrelated)" section.
 13. **Open, low priority (found 2026-10-27).** (a) Home Assistant has a stale second "Vacuum CleanusMaximus" device on `2026.07.0` with one entity, next to the live `2026.10.0` device; review and remove it. (b) The new retained `$homie/...` topics were not looked at on the broker; the Claude Code MQTT plugin needs `bun`, which isn't installed. (c) After the 2026-10-28 03:13 UTC nightly reboot, the broker on `192.168.1.106:1883` refused connections for about 4.5 minutes, giving 90 reconnect errors on the MQTT page. That happened on the broker side, not in Valetudo.
+14. **Open, planned 2026-10-28: step 2 of shrinking the fork's diff.** [Fork diff triage](docs/maintenance/2026-10-28-fork-diff-triage.md) sorts all 89 differing files and proposes PRs 1–6. Waiting for the owner's review; nothing is implemented. It also found that `QuirksCapability` is not in the robot's MQTT `optionalExposedCapabilities`, so the plugin's Quirks MQTT handle is not registered. CLAUDE.md says Home Assistant has quirk controls; Home Assistant itself was not checked.
 
 ## Documentation Map
 
 - `CLAUDE.md` — primary integration and operations guide
+- `docs/maintenance/2026-10-28-fork-diff-triage.md` — every file that differs from upstream, its category, and the proposed step-2 PRs
 - `docs/maintenance/2026-09-28-next-session-handoff.md` — current state, the pending certificate-transaction deploy plan, and outstanding checks (supersedes the 2026-09-26 handoff)
 - `.github/copilot-instructions.md` — concise coding-agent guardrails
 - `mcp-server/README.md` — MCP setup, environment variables, tunnel, and tools
