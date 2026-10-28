@@ -15,13 +15,23 @@ import {
 import {useCapabilitiesSupported} from "../../CapabilitiesProvider";
 import {CapabilityContainer, CapabilityItem} from "./CapabilityLayout";
 
+type PlaybackFormat = "hls" | "mp4";
+
 /**
  * Safari and iOS play HLS natively but not a progressive fMP4 live stream;
- * Chrome, Firefox and Edge on the desktop play the fMP4 stream.
+ * Chrome, Firefox and Edge on the desktop play the fMP4 stream. Chrome 141+
+ * also reports native HLS support, but its demuxer cannot parse go2rtc's HLS,
+ * so canPlayType alone cannot pick the format. Prefer fMP4 wherever Media
+ * Source Extensions exist (every desktop browser) and HLS where they do not
+ * (iPhone Safari); the other format is the fallback if the first one fails.
  */
-const choosePlaybackFormat = (): "hls" | "mp4" => {
+const playbackFormatOrder = (): Array<PlaybackFormat> => {
     const probe = document.createElement("video");
-    return probe.canPlayType("application/vnd.apple.mpegurl") !== "" ? "hls" : "mp4";
+    const hls = probe.canPlayType("application/vnd.apple.mpegurl") !== "";
+    if (!hls) {
+        return ["mp4"];
+    }
+    return typeof window.MediaSource === "undefined" ? ["hls", "mp4"] : ["mp4", "hls"];
 };
 
 const VideoStreamControl: FunctionComponent = () => {
@@ -29,7 +39,9 @@ const VideoStreamControl: FunctionComponent = () => {
     const {mutate: sendCommand, isPending: commandPending} = useVideoStreamCommandMutation();
     const [watching, setWatching] = React.useState(false);
     const [playbackError, setPlaybackError] = React.useState(false);
-    const format = React.useMemo(choosePlaybackFormat, []);
+    const formats = React.useMemo(playbackFormatOrder, []);
+    const [formatIndex, setFormatIndex] = React.useState(0);
+    const format = formats[formatIndex];
 
     // Each viewer is relayed through Valetudo, so never keep one open in a background tab.
     React.useEffect(() => {
@@ -94,6 +106,11 @@ const VideoStreamControl: FunctionComponent = () => {
                             controls
                             style={{display: "block", width: "100%", aspectRatio: "864 / 480"}}
                             onError={() => {
+                                if (formatIndex + 1 < formats.length) {
+                                    setFormatIndex(formatIndex + 1);
+                                    return;
+                                }
+                                setFormatIndex(0);
                                 setPlaybackError(true);
                                 setWatching(false);
                             }}
@@ -125,6 +142,7 @@ const VideoStreamControl: FunctionComponent = () => {
                     ) : (
                         <Button variant="contained" startIcon={<WatchIcon/>} disabled={paused} onClick={() => {
                             setPlaybackError(false);
+                            setFormatIndex(0);
                             setWatching(true);
                         }}>
                             Watch
