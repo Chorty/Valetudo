@@ -2,14 +2,17 @@
 import React from "react";
 import {useSnackbar} from "notistack";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
-import {Capability, MapManagementCommand, MapManagementMapEntry, VideoStreamCommand} from "./types";
+import {Capability} from "./types";
 import {
     exportMapManagementMap,
     fetchMapManagementList,
     fetchVideoStreamStatus,
     importMapManagementMap,
+    MapManagementCommand,
+    MapManagementMapEntry,
     sendMapManagementCommand,
     sendVideoStreamCommand,
+    VideoStreamCommand,
 } from "./VacuumstreamerApiClient";
 
 const MAP_MANAGEMENT_QUERY_KEY = "map_management_capability";
