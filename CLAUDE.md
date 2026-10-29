@@ -366,7 +366,7 @@ Environment variables:
 | `VALETUDO_AUTH_SERVICE` | Keychain service; defaults to `valetudo-basic-auth` on macOS, empty disables the lookup |
 | `VALETUDO_TIMEOUT_MS` | Optional; defaults to `10000`, range 100–120000 ms |
 
-Until the Mac is added to the Caddy allowlist, run `ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:80 vacuum` and set `VALETUDO_URL=http://127.0.0.1:8080`. Do not tunnel through another LAN host to `192.168.1.31:80`, because that leaves the last hop and the Basic Auth header unencrypted. See `mcp-server/README.md` for configuration and tool inventory.
+Until the Mac is added to the Caddy allowlist, run `ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:80 vacuum` and set `VALETUDO_URL=http://127.0.0.1:8080`. Do not tunnel through another LAN host to `192.168.1.31:80`, because that leaves the last hop and the Basic Auth header unencrypted. See `mcp-server/README.md` for configuration and tool inventory. Since PR 4 of the fork-diff plan (2026-10-29) `mcp-server/` has its own `package-lock.json` and is no longer a root npm workspace: install it once with `npm ci --prefix mcp-server` and test it with `npm test --prefix mcp-server`. The client command stays `node mcp-server/index.js`.
 
 ## Native VacuumStreamer
 
