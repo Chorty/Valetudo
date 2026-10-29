@@ -136,6 +136,8 @@ Move `SlowRequestMiddleware.js`, `PrecompressedStaticMiddleware.js` and their te
 
 **Verify.** `ts-check_all`. Run the production frontend build before and after: the main-bundle gzip size and the bundle budgets should be unchanged, and the built JS should not contain `query-devtools`. If the devtools do appear, keep the fork's `App.tsx` and drop that half. On the robot after the next deploy: the GUI, the Camera page and the floor-management page load.
 
+**Result (PR #41, 2026-10-29).** The devtools stayed out of the bundle, but the main bundle was not quite unchanged: it grew by 31 B gzipped (414.75 → 414.78 kB). The package's production entry is `function(){return null}`, and upstream's `App.tsx` still renders `<ReactQueryDevtools initialIsOpen={false} buttonPosition={"bottom-left"}/>`; that stub and element are the 31 B. Every other chunk kept its hash. That is far inside the budget, so `App.tsx` returned to upstream as planned.
+
 ### PR 4: package metadata (parent only)
 
 **Root `package.json`.**
