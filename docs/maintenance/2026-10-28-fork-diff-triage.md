@@ -162,6 +162,11 @@ Move `SlowRequestMiddleware.js`, `PrecompressedStaticMiddleware.js` and their te
 - `build_aarch64` prints no pkg warnings. The arm64 container run logs no `Failed to load OpenApi spec`, and `/swagger/` loads. If either check fails, keep the asset line and drop that item from the PR.
 - On the robot after the deploy: the same log check.
 
+**Result (PR #42, 2026-10-29).** Every check passed, and the schema line went: the aarch64 binary served `/swagger/`, rejected an invalid payload with the validator's 400, and logged no `Failed to load OpenApi spec`. Two things differed from the plan:
+
+- Finding 4 counted one plugin test that requires `express`; there were three (PRs 1 and 2 each added one). Without the root pin eslint-plugin-node reports them as `node/no-extraneous-require` instead of `node/no-unpublished-require`, so plugin PR #13 made each disable name both rules before the parent PR.
+- The lockfile shrank more than estimated: +288 −33 against upstream instead of about +415. All 21 packages that left were the MCP server's, and six packages that only MCP used at runtime (`cross-spawn`, `which` and others) are now dev-only. `npm ls --omit=dev --all --workspace=backend` is unchanged. The new `mcp-server/package-lock.json` (+1,238) is fork-only, so the whole-repo count grows even though the conflict surface shrinks.
+
 ### PR 5: build-metadata script back to upstream (parent only)
 
 Restore upstream's `util/generate_build_metadata.js` and delete `backend/test/util/GenerateBuildMetadata_test.js`.
