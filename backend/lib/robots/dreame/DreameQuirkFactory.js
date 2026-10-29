@@ -414,9 +414,6 @@ class DreameQuirkFactory {
                         );
 
                         const deserializedResponse = DreameUtils.DESERIALIZE_MISC_TUNABLES(res);
-                        if (deserializedResponse.ExtrFreq === undefined) {
-                            return null;
-                        }
                         switch (deserializedResponse.ExtrFreq) {
                             case 1:
                                 return "automatic";
