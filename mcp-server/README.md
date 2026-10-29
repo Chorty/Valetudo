@@ -16,11 +16,17 @@ ssh -N -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
   -L 127.0.0.1:8080:127.0.0.1:80 vacuum
 ```
 
-In another terminal:
+In another terminal, install the dependencies once, then start the server:
 
 ```bash
+npm ci --prefix mcp-server
 VALETUDO_URL=http://127.0.0.1:8080 node mcp-server/index.js
 ```
+
+`mcp-server/` has its own `package-lock.json` and is not one of the root npm
+workspaces, so the root `npm ci` doesn't install its dependencies. Run
+`npm ci --prefix mcp-server` again after its lockfile changes, and run its tests
+with `npm test --prefix mcp-server`.
 
 On macOS, the process reads service `valetudo-basic-auth` from Keychain by
 default. The account supplies the username; the password never enters command
@@ -154,6 +160,7 @@ git merge upstream/master
 ## Prerequisites
 
 - Node.js ≥ 18
+- Dependencies installed with `npm ci --prefix mcp-server`
 - Valetudo running on the vacuum (port 80)
 - For video-stream tools: `vacuumstreamer.so` + `go2rtc` deployed on vacuum
 - For TTS tools: `ffmpeg` on vacuum (optional, for audio conversion)
