@@ -58,7 +58,7 @@ The deployment passed an on-robot 60-second health gate, a reboot gate of 12 con
 
 ## Safe Build and Deployment
 
-Build deployment artifacts from a clean clone checked out detached at the exact commit. `util/generate_build_metadata.js` records the commit only from a detached or `master` checkout, so worktree and feature-branch builds report `unknown`. The plugin commit must be reachable, for example by pointing the submodule URL at the local plugin repository.
+Build deployment artifacts from a clean clone checked out detached at the exact commit. `util/generate_build_metadata.js` (upstream's, since PR 5 of the fork-diff plan) records the commit only from a detached or `master` checkout: a feature-branch build reports the literal `ref: refs/heads/<branch>` and a worktree build `unknown`. `tools/build_valetudo.sh` stops if the metadata doesn't name the requested commit. The plugin commit must be reachable, for example by pointing the submodule URL at the local plugin repository.
 
 ```bash
 git clone --no-checkout /Users/mattjoslin/Documents/GitHub/Valetudo build-clone

@@ -58,6 +58,8 @@ Totals by each file's main category (a file whose lines fall into several catego
 | `package-lock.json` | +735 −50 | about +415 | about +415 |
 | Whole repo | +7,100 | about +6,020 | about +5,940 |
 
+**Result after PRs 1–5 (merged 2026-10-29, #39–#43):** `backend/lib` + `frontend/src` 29 files, +1,092 −58; modified upstream files excluding the lockfile 29 files, +209 −64; `package-lock.json` +288 −33. The first two match the projection; the lockfile came out smaller (see PR 4's result). The whole repo is +7,486 −97, including the new fork-only `mcp-server/package-lock.json` (+1,238).
+
 After this plan, most of what remains is plugin hooks, the frontend pages and their routing, ForcedGcPolicy, the single-flight MQTT refresh, the two secret-logging fixes, the `tar-stream` 3 dependency tree, and fork-only tooling.
 
 ## Findings to know first
@@ -178,6 +180,8 @@ The fork's rewrite (`4702b019`) fixed commit IDs for feature-branch and worktree
 **Risk.** Low. CI and local feature-branch builds will show `ref: refs/heads/...` or `unknown` again.
 
 **Verify.** `tools/build_valetudo.sh <commit>` passes its metadata check. After the deploy, the robot's `/api/v2/valetudo/version` reports the commit.
+
+**Result (PR #43, 2026-10-29).** In a clean clone detached at the PR's commit, upstream's script embedded the full SHA. On a branch it embedded `ref: refs/heads/<branch>`, as expected. The deploy build of PRs 1–5 runs the full `build_valetudo.sh` metadata check.
 
 ### PR 6 (optional, owner's decision): obsolete safety nets (parent only)
 
