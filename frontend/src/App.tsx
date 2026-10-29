@@ -4,6 +4,7 @@ import RouterChoice from "./RouterChoice";
 import CapabilitiesProvider from "./CapabilitiesProvider";
 import {SnackbarProvider} from "notistack";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import {ReactQueryDevtools} from "@tanstack/react-query-devtools";
 import {useLocalStorage} from "./hooks";
 import "@fontsource/ibm-plex-sans/300.css";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -13,10 +14,6 @@ import "@fontsource/jetbrains-mono/200.css";
 
 const ANIMATION_SPEED = 2;
 const queryClient = new QueryClient();
-const ReactQueryDevtools = process.env.NODE_ENV === "development" ? React.lazy(async () => {
-    const module = await import("@tanstack/react-query-devtools");
-    return {default: module.ReactQueryDevtools};
-}) : null;
 
 const App = (): React.ReactElement => {
     const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
@@ -67,9 +64,7 @@ const App = (): React.ReactElement => {
                 </SnackbarProvider>
             </ThemeProvider>
 
-            {ReactQueryDevtools && <React.Suspense fallback={null}>
-                <ReactQueryDevtools initialIsOpen={false} buttonPosition={"bottom-left"}/>
-            </React.Suspense>}
+            <ReactQueryDevtools initialIsOpen={false} buttonPosition={"bottom-left"}/>
         </QueryClientProvider>
     );
 };

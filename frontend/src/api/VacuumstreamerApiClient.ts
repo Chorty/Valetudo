@@ -1,5 +1,31 @@
-import {Capability, MapManagementCommand, MapManagementMapEntry, VideoStreamCommand, VideoStreamStatus} from "./types";
+import {Capability} from "./types";
 import {valetudoAPI, valetudoAPIBaseURL} from "./client";
+
+export interface VideoStreamStatus {
+    active: boolean;
+    capturing?: boolean;
+    paused?: boolean;
+    mode?: string;
+    pid?: number | null;
+    go2rtcPid?: number | null;
+}
+
+export interface VideoStreamCommand {
+    action: "start" | "stop";
+}
+
+export interface MapManagementMapEntry {
+    id: string;
+    name: string;
+    timestamp: number;
+    isActive?: boolean;
+}
+
+export interface MapManagementCommand {
+    action: "save" | "load" | "delete" | "rename";
+    id?: string;
+    name?: string;
+}
 
 export const fetchMapManagementList = async (): Promise<MapManagementMapEntry[]> => {
     return valetudoAPI
