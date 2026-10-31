@@ -45,7 +45,7 @@ After any binary-only Valetudo restart while the robot is docked, the map stays 
 
 ### 2026-10-31 deployment follow-up
 
-Chrome verified the GUI and map, Floor Management (10 saved slots, active `6 rooms 071826`), and advancing 864×480 camera playback after a cold-start retry. No maps or robot settings were changed. The two obsolete build clones were removed after their binaries matched the sealed backup copies. Draft plugin #14 fixes compressed asset serving below dot-directories; draft native #20 builds the frontend before tests. These fixes are not deployed. The [follow-up record](docs/maintenance/2026-10-31-deploy-follow-up.md) records checks and remaining caveats. PR 6 still awaits an explicit owner decision.
+Chrome verified the GUI and map, Floor Management (10 saved slots, active `6 rooms 071826`), and advancing 864×480 camera playback after a cold-start retry. No maps or robot settings were changed. The two obsolete build clones were removed after their binaries matched the sealed backup copies. Draft plugin #14 fixes compressed asset serving below dot-directories; draft native #20 builds the frontend before tests. These fixes are not deployed. The [follow-up record](docs/maintenance/2026-10-31-deploy-follow-up.md) records checks and remaining caveats. On 2026-10-31 the owner authorized the follow-up recommendation: retain environment redaction and move only the Quirks documentation (plugin #15).
 
 ### 2026-09-13 runtime-switches deployment
 

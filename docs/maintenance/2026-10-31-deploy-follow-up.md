@@ -26,6 +26,6 @@ Removed only `build-bd4c47ef` and `build-00e5e628` from `~/.cache/vacuumstreamer
 
 ## Remaining decisions and observations
 
-- PR 6 still requires an explicit yes: removing `/runtime/info` environment redaction and moving the Quirks paragraph have not been implemented.
+- Subsequent decision 2026-10-31: the owner authorized retaining `/runtime/info` environment redaction and moving the Quirks paragraph separately. Plugin #15 contains the guidance; its parent companion removes the upstream-page paragraph. The redaction and its tests remain unchanged.
 - The robot log contained MQTT keepalive/connack timeouts earlier in this boot, followed by reconnections, and a 23.853-second refresh at 05:13:50 UTC. These predate the GUI checks. The final `/api/v2/mqtt/status` check returned HTTP 200 with state `ready` (9 connects, 14 reconnects, 14 errors). Do not carry the previous handoff's error-free observation forward as a claim about this boot. No MQTT configuration was changed by this session.
 - Quirks MQTT registration remains the separate decision described by the fork-diff triage; it was not changed here.
