@@ -6,9 +6,9 @@ Last updated: 2026-11-01
 
 | Component | Location | Active branch | Remote |
 |---|---|---|---|
-| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | `master` `eb8e6336` (PR #45); deployed 2026-10-31 as `followup1031` | `Chorty/Valetudo` via `fork` |
+| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | `master` `9f502b46` before this docs update (PR #47); deployed binary remains `eb8e6336` (PR #45), `followup1031` | `Chorty/Valetudo` via `fork` |
 | VacuumStreamer plugin | `vacuumstreamer-plugin/` | `main` `179b4ed` (PR #15; #14 dot-directory asset fix), the parent's submodule pointer and the plugin in the deployed binary | `Chorty/valetudo-vacuumstreamer-plugin` |
-| Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | `master` `3ea10b4` (PR #22, HA renewal acceptance; #21 camera cold-start fix); robot runtime files from `3ea10b4`, deployed 2026-10-31 as `followup1031` | `Chorty/vacuumstreamer` |
+| Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | `master` `ac4645f` (PR #23, docs); robot runtime files remain from `3ea10b4`, deployed 2026-10-31 as `followup1031` | `Chorty/vacuumstreamer` |
 
 On 2026-09-16 every deployed branch was merged into its default branch, including the upstream sync (PR #11, `master` `23db0322`). `agent/final-gui-resource-acceptance` and `test/upstream-sync-2026-09` were deleted.
 
@@ -153,6 +153,8 @@ just the closure log so the work list below stays focused on current status.
 - **Duststreaming clarified as unrelated to VacuumStreamer's camera (2026-09-17).** It appeared in the UI for the first time after the upstream sync merge; read directly from source to confirm it shares no code with VacuumStreamer's camera. See CLAUDE.md's "Duststreaming (upstream, unrelated)" section for the full comparison.
 
 ## Work list, by importance
+
+**2026-11-01 evening recheck:** fetched all three repos; clean and matched their fork tracking refs at the commits above, with no open PRs before this docs update. Upstream now has three newer commits (`50de90ab`, `209049bb`, `06cfc72d`). Robot still on the U6 Pro BSSID `b6:8b:a9:3e:51:8e`, channel 11, −39 dBm; 30/30 gateway pings, 0% loss, min/avg/max 2.379/44.652/230.181 ms. This short sample meets the average/loss target but does not establish sustained stability. Wi-Fi remains the first owner decision: lock to Rear AC Mesh or change the U6 Pro channel, then recheck. No network settings, deployment, or security scan in this session. See CLAUDE.md's maintenance recheck for the session and source checks.
 
 0. **Done 2026-09-28: native #15 and the matching HA files deployed (`certtx0928`).** Tunnelled docked baseline recorded the same evening (all three scenarios valid, isolated p95 121–139 ms; native #18 fixed the RTSP viewer for `CAMERA_LOGIN`, #19 makes these runs the default baselines; details in `CLAUDE.md`). Remaining: the first real renewal (about 2026-11-25). Since 2026-10-31 HA's `valetudo_robot_certificate_renewal_acceptance` automation (native #22, 03:10 daily) notifies when it has verified the renewed leaf served by the robot; check HA's notifications the morning after. The iPhone (`192.168.1.33`) is allowed in Caddy since `followup1031`; the Mac is not.
 1. **Done 2026-10-03: preset 3 verified in a user-started cleaning** (vacuum, mid-job mop wash, mop pass, final wash; area damp; details under the 2026-09-26 rollout decision). Re-added and deployed 2026-09-24 at the owner's request (PR #21, `preset0924`); docked check passed (firmware stores and reports mode 3); the owner waived the supervised cleaning as a rollout gate on 2026-09-26. Original note: **Verify the L10S `VACUUM_THEN_MOP` preset on the robot before restoring it.** Upstream deliberately removed `VACUUM_THEN_MOP: 3` from this model in `e42adcb7` (March 2025) while reworking vacuum-then-mop. PR #1, a one-line Copilot re-add without robot evidence, was closed unmerged on 2026-09-16; branches `copilot/fix-4d4a22c8-…` and `codex/reimplement-vacuum-then-mop-mode` are kept. PR #1 stays closed; PR #21 is the merged change. The older branches are historical alternatives.
