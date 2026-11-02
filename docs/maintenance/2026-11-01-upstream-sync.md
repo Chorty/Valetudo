@@ -1,6 +1,6 @@
-# 2026-11-01 upstream sync: ready for owner deployment
+# 2026-11-01 upstream sync: deployed and verified
 
-The source sync is merged and its deployment package is ready. The robot still runs `eb8e6336` (`followup1031`); no deploy stage has run.
+The owner deployed `c0fe6c1b` as `sync1101` on November 1, finishing at 20:34 EST (November 2 01:34 UTC). The binary gate and 12/12 reboot gate passed; post-deploy verification passed. This replaces `eb8e6336` (`followup1031`).
 
 ## Source and review
 
@@ -12,7 +12,7 @@ The source sync is merged and its deployment package is ready. The robot still r
 
 The current robot DID is a positive uint32 and is unchanged by the conversion. Five synthetic positive/signed IDs passed config parsing, getter caching and wire-header encoding checks without opening sockets. The merge preserves `ForcedGcPolicy`, secret redaction, L10S plugin overrides and plugin revision `179b4ed6bb2698c0057f0e1a879891ab2ef09d30`.
 
-Native source is `ac4645ffddd713edafc018257cef72b4cc77000a`; its deployable runtime files are identical to deployed native `3ea10b4`.
+Native source is `ac4645ffddd713edafc018257cef72b4cc77000a`; its deployable runtime files are identical to the previous native `3ea10b4` runtime.
 
 ## Validation and artifact
 
@@ -30,11 +30,11 @@ Fresh backups passed all checks: six robot SSH key files matched; all 924 robot 
 
 Read-only checks found the robot docked, dock idle, battery 100%, status flag `none`, 52 capabilities, eight map layers and `vacuum_then_mop` available. MQTT was `ready` with 99 accumulated errors and 99 reconnects already present before this update. Responses are saved privately under `predeploy_baseline/` for comparison.
 
-The active binary still has SHA-256 `62b8f22659c057d3491fadc7c52cf1da3b41f52c974136704861e7f29b2d1be1`. The watchdog's `VALETUDO_SLOW_REQUEST_MS=500` override is present and these deploy stages do not replace the watchdog. Deploy ID `sync1101` is unused. The owner chose to leave UniFi settings unchanged; Wi-Fi work is deferred.
+The predeploy binary had SHA-256 `62b8f22659c057d3491fadc7c52cf1da3b41f52c974136704861e7f29b2d1be1`. The watchdog's `VALETUDO_SLOW_REQUEST_MS=500` override was present and these deploy stages do not replace the watchdog. Deploy ID `sync1101` was unused. The owner chose to leave UniFi settings unchanged; Wi-Fi work is deferred.
 
-## Owner action
+## Executed deployment commands
 
-The project rule requires the owner to execute robot deployment scripts. The reviewed script below runs the binary gate, native install and reboot gate in order, stopping if any stage fails:
+The project rule requires the owner to execute robot deployment scripts. The owner ran this script, which completed the binary gate, native install and reboot gate in order. These commands are retained as the deployment record; do not rerun them for verification:
 
 ```bash
 bash /Users/mattjoslin/Documents/ValetudoBackups/valetudo_sync1101_20261101/DEPLOY_COMMANDS.sh
@@ -49,6 +49,16 @@ tools/deploy_native.sh ac4645ffddd713edafc018257cef72b4cc77000a sync1101 &&
 tools/deploy_reboot_gate.sh 1353cd8ac17b4c513a3944f0b5d439bbf26ca2cbe6069c06464e45d0a1810d94 c0fe6c1b858b2f9098c51301324b8c400539f4de sync1101
 ```
 
-The deploy stages will create `/data/valetudo.predeploy_sync1101` and matching native rollback copies. Those copies do not exist yet. Current rollback remains the `followup1031` rollback described in CLAUDE.md.
+The stages created `/data/valetudo.predeploy_sync1101` and matching native rollback copies. The binary rollback hash matches the previous `eb8e6336` artifact (`62b8f226…`). All 17 deployed native scripts/templates/boot files match `ac4645f` and their rollback copies; `vacuumstreamer.conf` matches its preserved copy.
 
-After the owner runs the stages, verify the 60-second binary gate and 12/12 reboot gate, running commit/hash, loaded map, 52 capabilities and preset 3, MQTT/HA availability, camera playback and watchdog override. A docked binary-only restart leaves the map empty until reboot, so assess it after the reboot gate. Do not start cleaning or move the robot. Record the actual deployment result in this file, CLAUDE.md and MEMORY.md through a docs PR.
+## Post-deploy verification
+
+- Installed and running `/proc/<pid>/exe` hashes both match `1353cd8a…`; runtime version reports the full `c0fe6c1b` commit. Local markers confirm the binary gate, native revision and reboot gate passed.
+- Robot docked, dock idle, battery 100%, status flag `none`. The 52-capability list and operation-mode presets are identical to the predeploy baseline, including `vacuum_then_mop`. All eight map geometry layers match the baseline exactly.
+- MQTT ready, one connection, zero disconnects/reconnects/errors since this boot. The predeploy error counters were historical and reset on reboot.
+- Root/API, robot-local verified HTTPS, watchdog, go2rtc, camera supervisor and disabled HTTP bridge passed the read-only runtime health check. `VALETUDO_SLOW_REQUEST_MS=500` is preserved.
+- HA: 72 matching entity states checked; vacuum docked and all three camera entities available. No newly unavailable entities. Four optional camera-event/recognized-people helpers have been unavailable since 22:06 UTC on November 1, before this deployment. Stateless buttons and the firmware-unsupported edge-extension frequency may show `unknown` as before.
+- Camera relay: bounded `live.mp4` request received 686,017 bytes, with 134 complete MP4 media fragments and native 864×480 dimensions. macOS `avconvert` decoded/transcoded a three-second sample successfully (exit 0). This is an encoded-stream playback check, not a new Safari/Chrome UI check. Temporary recordings were removed after validation.
+- The camera woke at 01:37:39 UTC, then the supervisor stopped `video_monitor` at 01:40:52 UTC after its normal 180-second no-viewer timeout. Final camera status: on-demand, unpaused, go2rtc running, capture stopped, no viewer.
+
+Post-deploy API and credential-free HA summaries are stored privately in `~/Documents/ValetudoBackups/maintenance_20261101/sync1101-postdeploy/`. All 37 files in the original sealed backup were rechecked and still match its unchanged manifest; its excluded `DEPLOY_RECORD.txt` is updated with the result. No cleaning or motion was started. Wi-Fi settings remain unchanged at the owner's direction.
