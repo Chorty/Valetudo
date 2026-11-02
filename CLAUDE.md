@@ -48,6 +48,12 @@ Historical 2026-09-23 baseline: the robot then ran Valetudo `fcdd2a85` (release 
 
 After any binary-only Valetudo restart while the robot is docked, the map stays empty until the robot boots or its map changes. The Dreame firmware re-uploads its I-frame only on those events, so a reboot, not a rollback, is the fix.
 
+### 2026-11-01 maintenance recheck
+
+At about 19:34 EST (2026-11-02 00:34 UTC), the robot was still associated with the previously identified U6 Pro BSSID `b6:8b:a9:3e:51:8e`, 2462 MHz (channel 11), signal −39 dBm. A robot-to-gateway check received 30/30 replies with 0% loss and min/avg/max 2.379/44.652/230.181 ms. This short sample meets the under-50-ms average and no-loss target, but does not establish sustained stability or close the recurring AP issue. No network settings were changed. The owner still needs to choose whether to lock the robot to the Rear AC Mesh or change the U6 Pro's 2.4 GHz channel, then repeat the check.
+
+All three repositories were fetched and clean before this documentation update: parent `9f502b46` matched `fork/master`, plugin checkout `179b4ed` matched `origin/main`, and native `ac4645f` matched `origin/master`. GitHub showed no open PRs in any of the three. Upstream now has three commits beyond the fork: `50de90ab`, `209049bb`, and `06cfc72d`; no merge or build was attempted in this recheck. The latest Claude transcript remained `13ef4cf2-2ba8-4acc-92d0-36f65ee46b11`, including its November 1 follow-up; no intervening Codex maintenance work was found. No deployment or security scan was performed.
+
 ### 2026-10-31 deployment follow-up
 
 Chrome verified the GUI and map, Floor Management (10 saved slots, active `6 rooms 071826`), and advancing 864×480 camera playback after a cold-start retry. No maps or robot settings were changed. The two obsolete build clones were removed after their binaries matched the sealed backup copies. Plugin #14 fixes compressed asset serving below dot-directories and native #20 builds the frontend before tests; both were merged and deployed as `followup1031` (see the 2026-10-31 state above). The [follow-up record](docs/maintenance/2026-10-31-deploy-follow-up.md) records checks and remaining caveats. On 2026-10-31 the owner authorized the follow-up recommendation: retain environment redaction and move only the Quirks documentation (plugin #15).
