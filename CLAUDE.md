@@ -479,6 +479,8 @@ Find relevant sessions by searching transcripts for this repository path, then o
 
 ## Upstream Synchronization
 
+**2026-11-01 sync preparation:** reviewed and merged upstream through `06cfc72d` on `sync/upstream-2026-11-01` without conflicts. The three commits add a Z60 model ID (`50de90ab`), accept negative miIO device IDs and cast them to uint32 (`209049bb`), and remove an outdated Q7 Max NAND note (`06cfc72d`). The fork's `ForcedGcPolicy`, secret redaction and plugin pointer remain unchanged. Five synthetic positive/signed device IDs passed parsing, getter caching and miIO header encoding checks without opening robot sockets. Full CI and a clean detached ARM64 build are required before deployment. The deployed baseline remains `followup1031`; no deployment has occurred. The owner chose to leave UniFi settings unchanged for now, so Wi-Fi work is deferred.
+
 ```bash
 git fetch origin
 git merge origin/master
