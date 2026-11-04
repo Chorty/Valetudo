@@ -19,12 +19,20 @@ test("both clients enforce certificate trust, hostname and expiry while sending 
     for (const [name, san, days] of [["valid", "IP:127.0.0.1", "30"], ["wrong", "DNS:wrong.invalid", "30"], ["expired", "IP:127.0.0.1", "0"]]) {
         const certificate = path.join(dir, `${name}.pem`);
         fs.writeFileSync(extensions, `subjectAltName=${san}\n`);
-        execFileSync("openssl", ["x509", "-req", "-in", csr, "-signkey", key, "-days", days, "-extfile", extensions, "-out", certificate], {stdio: "ignore"});
-        const cert = fs.readFileSync(certificate);
+        const sign = validity => execFileSync("openssl", ["x509", "-req", "-in", csr, "-signkey", key, ...validity, "-extfile", extensions, "-out", certificate], {stdio: "ignore"});
         if (name === "expired") {
-            // -days 0 sets notAfter to the creation second, so it is still valid until that second passes.
-            await new Promise(resolve => setTimeout(resolve, 1100));
+            try {
+                // OpenSSL 3.4+ (4.x rejects -days 0)
+                sign(["-not_before", "20200101000000Z", "-not_after", "20200102000000Z"]);
+            } catch (e) {
+                // Older OpenSSL: -days 0 sets notAfter to the creation second, so it is still valid until that second passes.
+                sign(["-days", days]);
+                await new Promise(resolve => setTimeout(resolve, 1100));
+            }
+        } else {
+            sign(["-days", days]);
         }
+        const cert = fs.readFileSync(certificate);
         let requests = 0;
         const server = https.createServer({key: fs.readFileSync(key), cert: cert}, (request, response) => {
             requests++;

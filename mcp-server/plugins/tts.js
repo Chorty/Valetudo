@@ -33,7 +33,7 @@ export function register(server, client) {
         "tts_play_file",
         "Play an audio file on the vacuum",
         {
-            filePath: z.string().describe("Absolute path to audio file on the vacuum (e.g. /tmp/audio.wav)"),
+            filePath: z.string().describe("Absolute path to a .wav or .mp3 file on the vacuum, under /tmp or /data/vacuumstreamer/audio (e.g. /tmp/audio.wav)"),
         },
         async ({ filePath }) => {
             await client.putCapability("TextToSpeechCapability", {

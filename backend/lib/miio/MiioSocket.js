@@ -21,6 +21,8 @@ class MiioSocket {
      * @param {(() => void)=} [options.onConnected] function to call after completing a handshake
      * @param {string} options.name Name used to disambiguate logging messages
      * @param {boolean=} options.isCloudSocket Cloud sockets send time sync replies
+     * @param {boolean=} options.acceptOnlyFromPeer Drop datagrams that do not come from options.rinfo
+     *                   instead of adopting their sender as the new peer
      */
     constructor(options) {
         this.codec = new Codec({token: options.token});
@@ -45,12 +47,23 @@ class MiioSocket {
         this.onConnected = options.onConnected;
         this.connected = false;
         this.isCloudSocket = options.isCloudSocket;
+        this.acceptOnlyFromPeer = options.acceptOnlyFromPeer === true;
         /** @type {null | ((msg: import("./DecodedMiioPacket")) => void)} */
         this.onEmptyPacket = null;
 
 
         this.socket.on("message", (incomingMsg, rinfo) => {
-            this.rinfo = rinfo;
+            if (this.acceptOnlyFromPeer) {
+                // Fork change: any datagram could otherwise replace the peer and, through
+                // Codec's handshake handling, the token. See Chorty/Valetudo security review 2026-11-03.
+                if (rinfo.address !== this.rinfo.address || rinfo.port !== this.rinfo.port) {
+                    Logger.debug(`<<< ${this.name}: ignoring datagram from unexpected peer`);
+
+                    return;
+                }
+            } else {
+                this.rinfo = rinfo;
+            }
             const decodedIncomingPacket = this.codec.decodeIncomingMiioPacket(incomingMsg);
 
             if (
@@ -103,7 +116,10 @@ class MiioSocket {
                 this.codec.updateStamp(decodedIncomingPacket.stamp);
 
                 if (msg["id"] && (msg["result"] !== undefined || msg["error"] !== undefined)) {
-                    const pendingRequestWithMatchingMsgId = this.pendingRequests[msg["id"]];
+                    // Own keys only: an id such as "__proto__" must not match Object.prototype
+                    const pendingRequestWithMatchingMsgId = Object.hasOwn(this.pendingRequests, msg["id"]) ?
+                        this.pendingRequests[msg["id"]] :
+                        undefined;
 
                     if (pendingRequestWithMatchingMsgId) {
                         clearTimeout(pendingRequestWithMatchingMsgId.timeout_id);

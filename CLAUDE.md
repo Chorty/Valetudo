@@ -322,7 +322,7 @@ All paths are below `/api/v2/robot/capabilities`.
 
 - `GET /TextToSpeechCapability` — playback status
 - `PUT /TextToSpeechCapability` with `{"action":"speak","text":"Hello","language":"en"}`
-- `PUT /TextToSpeechCapability` with `{"action":"play_file","filePath":"/approved/path/audio.wav"}`
+- `PUT /TextToSpeechCapability` with `{"action":"play_file","filePath":"/tmp/audio.wav"}`. Since plugin #16 the file must be a regular `.wav` or `.mp3` of at most 50 MiB whose real path is under `/tmp` or `/data/vacuumstreamer/audio`; anything else is refused. The robot has `aplay` but neither `mpg123` nor `ffplay`, so use WAV
 - `PUT /TextToSpeechCapability` with `{"action":"stop"}`
 
 ### Map management
@@ -447,6 +447,12 @@ On 2026-09-14 through -16 all ten candidates were assessed by hand against curre
 - **Assessed, not a bug:** the updater trust weakness (SHA-256 checked against a manifest from `api.github.com`; code signing is absent)
 
 A new Standard or Deep Scan is still needed for a canonical result.
+
+**2026-11-03 Standard scan, interrupted.** Codex thread `01a199ac…` started a Codex Security Standard scan (scan `3d9ec45a…`) against parent `b1f9291d` and plugin `179b4ed`; it stopped at the Codex usage limit with the plugin fully reviewed and the rest of the parent and the native companion not reviewed. Claude Code validated its three candidates:
+
+- **miIO local socket (medium, fixed in the fork, not yet deployed).** Upstream `MiioValetudoRobot` bound the local miIO UDP socket on all interfaces (`0.0.0.0:40336` on the robot, no firewall), `MiioSocket` adopted every datagram's sender as its peer, and `Codec` accepts an empty bad-checksum packet as a new token. A LAN device could therefore take over the firmware connection and, with a reply id such as `__proto__`, throw an uncaught exception that shuts Valetudo down; Basic Auth and the Caddy allowlist do not cover it. The fork now binds that socket to `127.0.0.1` when the robot address is loopback, drops datagrams from any other peer, and matches pending requests by own keys only. These are marked "Fork change" in the two upstream files; drop them once upstream fixes the issue. An upstream report is pending the owner's review.
+- **Map import memory (low, plugin #16).** Imports unpacked up to 512 MiB into RAM-backed `/tmp`; now 64 MiB, unpacked under `/data`.
+- **`play_file` path (low, plugin #16).** Any existing path was played as root; now confined as described under Text to speech.
 
 ### Exposures found 2026-09-13
 
