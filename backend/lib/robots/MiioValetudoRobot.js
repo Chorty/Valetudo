@@ -3,6 +3,7 @@ const dgram = require("dgram");
 const express = require("express");
 const fs = require("fs");
 const http = require("http");
+const net = require("net");
 const os = require("os");
 const path = require("path");
 const Semaphore = require("semaphore");
@@ -41,7 +42,13 @@ class MiioValetudoRobot extends ValetudoRobot {
         this.localSocket = new RetryWrapper(
             (() => {
                 const socket = dgram.createSocket("udp4");
-                socket.bind();
+                // Fork change: when the firmware's miio_client is local, keep this socket off
+                // the network entirely. See Chorty/Valetudo security review 2026-11-03.
+                if (this.ip === "127.0.0.1") {
+                    socket.bind({address: "127.0.0.1"});
+                } else {
+                    socket.bind();
+                }
 
                 return new MiioSocket({
                     socket: socket,
@@ -50,7 +57,9 @@ class MiioValetudoRobot extends ValetudoRobot {
                     rinfo: {address: this.ip, port: MiioSocket.PORT},
                     timeout: undefined,
                     name: "local",
-                    isCloudSocket: false
+                    isCloudSocket: false,
+                    // Only an IP literal can be compared with a datagram's source address
+                    acceptOnlyFromPeer: net.isIP(this.ip) !== 0
                 });
             })(),
             () => {
