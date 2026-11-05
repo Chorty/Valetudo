@@ -82,7 +82,10 @@ Run 2026-11-05 at about 01:19 UTC through a robot-terminated SSH tunnel. No clea
   - A cold `live.mp4` wake through the tunnel delivered its first byte in 1.3 s: 834,470 bytes in 12 s with 163 complete fMP4 fragments at 864×480.
   - macOS `avconvert` decoded a three-second sample (exit 0). That's an encoded-stream check, not a browser UI test. The recordings were removed afterwards.
   - The camera woke at 01:21:13 UTC. The supervisor stopped `video_monitor` at 01:24:28 UTC, after its normal 180-second no-viewer timeout. Final status: on-demand, unpaused, go2rtc running, capture stopped, no viewer.
-- **Home Assistant.** Not checked by Claude Code in this session: no HA token was available to it. Valetudo's MQTT side reports ready with zero errors.
+- **Home Assistant.** Checked read-only on 2026-11-05 at 03:17 UTC (November 4, 22:17 EST) with one `GET /api/states`, against the `sync1101` baseline of 72 entity states. No buttons were pressed and no services were called.
+  - All 72 entities are present, and none is newly unavailable. The vacuum is `docked`, and the three camera entities are `idle`.
+  - Four optional camera-event helpers are still unavailable, as they were before this deploy and `sync1101`.
+  - Nine sensors changed value. Eight are what one cleaning since the baseline would produce: the current and total statistics, and three consumable timers each down by 60. The ninth is Wi-Fi signal, which moved from −39 to −51 dBm.
 
 Post-deploy responses and the owner's deploy output are kept privately in `~/Documents/ValetudoBackups/maintenance_20261104/miio1103-postdeploy/`.
 
@@ -99,5 +102,4 @@ The miIO change touches only how the socket is bound and how incoming packets ar
 ## Still open
 
 - **Upstream report.** Drafted for the owner to review and post. Upstream's `SECURITY.md` asks for a normal friendly report; PR #52 is already public.
-- **Home Assistant check.** Still waiting for a token; see Post-deploy verification.
 - **Security review.** A manual review of the native companion and the parent ran on 2026-11-04; see `CLAUDE.md`, Security Review Status. Its findings are not fixed yet. No canonical security scan exists yet.
