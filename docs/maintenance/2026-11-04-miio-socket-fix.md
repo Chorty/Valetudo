@@ -99,4 +99,5 @@ The miIO change touches only how the socket is bound and how incoming packets ar
 ## Still open
 
 - **Upstream report.** Drafted for the owner to review and post. Upstream's `SECURITY.md` asks for a normal friendly report; PR #52 is already public.
-- **Security review.** The native companion and the rest of the parent repo have not been reviewed. No canonical security scan exists yet.
+- **Home Assistant check.** Still waiting for a token; see Post-deploy verification.
+- **Security review.** A manual review of the native companion and the parent ran on 2026-11-04; see `CLAUDE.md`, Security Review Status. Its findings are not fixed yet. No canonical security scan exists yet.
