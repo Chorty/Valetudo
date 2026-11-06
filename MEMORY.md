@@ -6,8 +6,8 @@ Last updated: 2026-11-06
 
 | Component | Location | Active branch | Remote |
 |---|---|---|---|
-| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | `master`, docs only after `566357b7` (PR #56, dependency update), deployed as `sec1105` | `Chorty/Valetudo` via `fork` |
-| VacuumStreamer plugin | `vacuumstreamer-plugin/` | `main` `5ccddae` (PR #16, map-import and `play_file` bounds), the parent's submodule pointer and the plugin in the deployed binary | `Chorty/valetudo-vacuumstreamer-plugin` |
+| Valetudo parent | `/Users/mattjoslin/Documents/GitHub/Valetudo` | `master`. The deployed binary is `566357b7` (PR #56, `sec1105`); after it come docs and the plugin bump to `6ddd572`, which waits for the next build | `Chorty/Valetudo` via `fork` |
+| VacuumStreamer plugin | `vacuumstreamer-plugin/` | `main` `6ddd572` (PR #17, `urls` route lists RTSP only), the parent's submodule pointer; not deployed. The deployed binary has `5ccddae` (PR #16) | `Chorty/valetudo-vacuumstreamer-plugin` |
 | Native companion | `/Users/mattjoslin/Documents/GitHub/vacuumstreamer` | `master`, docs only after `4f9c945` (PR #26, LAN firewall, key-only SSH, go2rtc API on loopback), deployed as `lan1105` | `Chorty/vacuumstreamer` |
 
 On 2026-09-16 every deployed branch was merged into its default branch, including the upstream sync (PR #11, `master` `23db0322`). `agent/final-gui-resource-acceptance` and `test/upstream-sync-2026-09` were deleted.
@@ -89,7 +89,8 @@ Checked 2026-11-05. Work has happened in Codex threads in VS Code and, since 202
 
 | Role | Tool | Session | ID | Active (UTC) |
 |---|---|---|---|---|
-| Latest working session | Claude Code | Finished the three owner-approved security fixes (native #24, parent #56), built and sealed `sec1105`, verified the owner's deployment, fixed the tool mode that interrupted it (native #25), built and sealed `lan1105` (native #26), verified the owner's deployment on 2026-11-06 | `57a576df-83cd-4cf3-9b02-7c93d9f8391a` | 2026-11-05 → |
+| Latest working session | Claude Code | Worked the `lan1105` open items: firewall test flush, rollback file check, plugin #17, boot-wake observer | `055d82c9-55af-462b-8807-ad14f0d26d80` | 2026-11-06 → |
+| Previous working session | Claude Code | Finished the three owner-approved security fixes (native #24, parent #56), built and sealed `sec1105`, verified the owner's deployment, fixed the tool mode that interrupted it (native #25), built and sealed `lan1105` (native #26), verified the owner's deployment on 2026-11-06 | `57a576df-83cd-4cf3-9b02-7c93d9f8391a` | 2026-11-05 → |
 | Interrupted working session | Codex | "Valetudo Fix approved security findings": same task, stopped at the usage limit after the owner approved its Docker build; left the Docker image and uncommitted lockfile edits, both checked and kept | `01a1a9e7-752b-7043-8ded-55c4718bac4e` | 2026-11-05 04:11 → 04:15 |
 | Earlier working session | Claude Code | Checked the upstream miIO report against upstream master, ran the manual security review of the native companion and parent (findings private), prepared the read-only HA comparison for `miio1103` | `d2ad6d8e-456b-4714-9c60-7d3f573ca588` | 2026-11-04 → |
 | Previous working session | Claude Code | Resumed Codex `01a199ac…` after its Standard scan stopped at the usage limit: validated and fixed the three candidates (plugin #16, parent #52), built `db6adc04`, sealed the backup, verified the owner-run `miio1103` deploy, drafted the upstream miIO report | `0e037cab-8f07-47fb-a513-bbc06a5e9e9a` | 2026-11-03 → 2026-11-05 |
@@ -199,9 +200,9 @@ just the closure log so the work list below stays focused on current status.
     - **Other shim issues, reported and not fixed:** see the private review's "Status, 2026-11-05".
     - **Housekeeping:** on 2026-11-05 the Mac had 12 GiB free, with 3.7 GB in `~/.cache/vacuumstreamer-tools`, mostly old build clones. The robot's `/data` had 2.8 GB free. Keep the Docker image until the next shim rebuild.
 18. **Done 2026-11-06: `lan1105` deployed and verified.** The remaining approved findings are on the robot, and their details are in CLAUDE.md's Security Review Status. What's left is in the [deployment record](docs/maintenance/2026-11-05-lan1105-build.md) under "Open after the deploy". Private results are in `~/Documents/ValetudoBackups/maintenance_20261106/lan1105-postdeploy/`. Anything still unfixed stays in the private review.
-    - **At the next reboot:** see whether `video_monitor` starts again about 11 s after boot, and which client it serves.
-    - **Next Valetudo build:** the plugin's `urls` route still lists go2rtc API URLs that other devices can't reach after this.
-    - **Untested until it happens:** the firewall's re-apply after a firmware flush. Look for `lan firewall: added` in `/tmp/vacuumstreamer.log` after the firmware changes networks.
+    - **Open, at the next reboot:** see whether `video_monitor` starts again about 11 s after boot, and which client it serves. A read-only Mac observer waits until 05:30 UTC on 2026-11-07, with results in `~/Documents/ValetudoBackups/maintenance_20261106/boot-observer/`. An unexplained wake at 17:13:59 UTC on 2026-11-06 lasted about 7 s of viewing.
+    - **Next Valetudo build:** ships plugin #17 (`urls` lists RTSP only). HA's enabled WebRTC URL sensor then needs its retained discovery topic cleared once; the deployment record has the steps, and the HA baseline drops from 72 to 71 entities.
+    - **Closed 2026-11-06:** the firewall re-apply passed an owner-approved `iptables -F` (rules back in 20 s). The firmware's real network change hasn't run with these rules. The owner accepted the rollback's stand-in test after all 20 `.predeploy_lan1105` files matched the sealed manifest; neither rollback has run on the robot.
 19. **On hold by the owner, 2026-11-05: upstream miIO report.** The owner decided not to post it for now, so don't raise it again unless they do. The final text is `~/Documents/ValetudoBackups/maintenance_20261104/upstream-miio-report.v3.md`. If it's revived, first recheck upstream and rerun the fork's `MiioSocket_test.js` against upstream's file; on 2026-11-05 upstream was still at `06cfc72d` and two of the five tests failed there. The owner posts it themselves, as an issue and never a PR.
 
 ## Documentation Map
