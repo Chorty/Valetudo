@@ -202,6 +202,7 @@ just the closure log so the work list below stays focused on current status.
     - **After the deploy:** update the access notes in CLAUDE.md, including the Caddy allowlist, and add the first real runs of `ssh_keys_only.sh` and `lan_firewall.sh` to the Validation section of the native `tools/README.md`.
     - **Next Valetudo build:** the plugin's `urls` route still lists go2rtc API URLs that other devices can't reach after this.
     - **Untested until it happens:** the firewall's re-apply after a firmware flush. Look for `lan firewall: added` in `/tmp/vacuumstreamer.log` after the firmware changes networks.
+19. **On hold by the owner, 2026-11-05: upstream miIO report.** The owner decided not to post it for now, so don't raise it again unless they do. The final text is `~/Documents/ValetudoBackups/maintenance_20261104/upstream-miio-report.v3.md`. If it's revived, first recheck upstream and rerun the fork's `MiioSocket_test.js` against upstream's file; on 2026-11-05 upstream was still at `06cfc72d` and two of the five tests failed there. The owner posts it themselves, as an issue and never a PR.
 
 ## Documentation Map
 
